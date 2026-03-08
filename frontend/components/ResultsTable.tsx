@@ -2,9 +2,10 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Entry, SortBy, SortOrder } from "@/lib/api";
+import { Entry, type Priority, SortBy, SortOrder } from "@/lib/api";
 import { TagChip } from "./TagChip";
 import { TagInput } from "./TagInput";
+import { PriorityInput } from "./PriorityInput";
 
 interface ResultsTableProps {
   entries: Entry[];
@@ -15,7 +16,7 @@ interface ResultsTableProps {
   sortBy: SortBy;
   order: SortOrder;
   onSortChange: (sortBy: SortBy, order: SortOrder) => void;
-  onUpdateEntryTags: (entryId: string, tags: string[]) => Promise<void>;
+  onUpdateEntry: (entryId: string, payload: { content: string; priority: Priority; tags: string[] }) => Promise<Entry>;
   onDeleteEntry: (entryId: string) => Promise<void>;
   loading: boolean;
 }
@@ -29,14 +30,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   sortBy,
   order,
   onSortChange,
-  onUpdateEntryTags,
+  onUpdateEntry,
   onDeleteEntry,
   loading,
 }) => {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingTags, setEditingTags] = useState<string[]>([]);
-  const editingTagsRef = useRef<string[]>([]);
-  editingTagsRef.current = editingTags;
+  const [editModalEntry, setEditModalEntry] = useState<Entry | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editPriority, setEditPriority] = useState<Priority>("medium");
+  const [editTags, setEditTags] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -49,30 +50,38 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const startIndex = page * pageSize + 1;
   const endIndex = Math.min(total, (page + 1) * pageSize);
 
-  const beginEdit = (entry: Entry) => {
-    setEditingId(entry.id);
-    setEditingTags(entry.tags);
+  const openEditModal = (entry: Entry) => {
+    setEditModalEntry(entry);
+    setEditContent(entry.content);
+    setEditPriority((entry.priority as Priority) ?? "medium");
+    setEditTags(entry.tags);
     setError(null);
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditingTags([]);
+  const closeEditModal = () => {
+    setEditModalEntry(null);
     setError(null);
   };
+
+  const isEditDirty =
+    editModalEntry &&
+    (editContent !== editModalEntry.content ||
+      editPriority !== (editModalEntry.priority ?? "medium") ||
+      JSON.stringify([...editTags].sort()) !== JSON.stringify([...editModalEntry.tags].sort()));
 
   const saveEdit = async () => {
-    const entryId = editingId;
-    if (!entryId) return;
-    const tagsToSave = editingTagsRef.current;
-    setSavingId(entryId);
+    if (!editModalEntry || !isEditDirty) return;
+    setSavingId(editModalEntry.id);
     setError(null);
     try {
-      await onUpdateEntryTags(entryId, tagsToSave);
-      setEditingId(null);
-      setEditingTags([]);
+      await onUpdateEntry(editModalEntry.id, {
+        content: editContent.trim(),
+        priority: editPriority,
+        tags: editTags,
+      });
+      closeEditModal();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update tags");
+      setError(err instanceof Error ? err.message : "Failed to update task");
     } finally {
       setSavingId(null);
     }
@@ -101,9 +110,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     setDeleteConfirmId(null);
     setDeletingId(entryId);
     setError(null);
-    if (editingId === entryId) {
-      setEditingId(null);
-      setEditingTags([]);
+    if (editModalEntry?.id === entryId) {
+      closeEditModal();
     }
     try {
       await onDeleteEntry(entryId);
@@ -117,6 +125,86 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const entryToDelete = deleteConfirmId
     ? entries.find((e) => e.id === deleteConfirmId)
     : null;
+
+  const editModal =
+    mounted &&
+    editModalEntry &&
+    createPortal(
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-dialog-title"
+      >
+        <div
+          className="absolute inset-0 bg-transparent"
+          aria-hidden
+          onClick={closeEditModal}
+        />
+        <div
+          className="relative z-10 w-full max-w-lg rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h3
+            id="edit-dialog-title"
+            className="text-sm font-semibold text-slate-100"
+          >
+            Edit task
+          </h3>
+          {error && (
+            <p className="mt-2 text-xs text-red-400" role="alert">
+              {error}
+            </p>
+          )}
+          {isEditDirty && (
+            <p className="mt-1 text-xs text-amber-400">
+              You have unsaved changes.
+            </p>
+          )}
+          <div className="mt-3 space-y-3">
+            <div>
+              <label className="text-xs font-medium text-slate-400">Content</label>
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="mt-1 min-h-[80px] w-full resize-y rounded-md border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-50 focus:border-sky-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-400">Priority</label>
+              <div className="mt-1">
+                <PriorityInput value={editPriority} onChange={setEditPriority} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-400">Tags</label>
+              <div className="mt-1">
+                <TagInput value={editTags} onChange={setEditTags} />
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={closeEditModal}
+              className="rounded-md border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void saveEdit()}
+              disabled={!isEditDirty || savingId === editModalEntry.id || !editContent.trim()}
+              className="rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingId === editModalEntry.id ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+
   const deleteTitle = entryToDelete?.content
     ? `Delete "${entryToDelete.content.length > 60 ? `${entryToDelete.content.slice(0, 60)}…` : entryToDelete.content}"?`
     : "Delete task?";
@@ -146,9 +234,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           >
             {deleteTitle}
           </h3>
-          <p className="mt-2 text-xs text-slate-400">
-            This cannot be undone.
-          </p>
+          <p className="mt-2 text-xs text-slate-400">This cannot be undone.</p>
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
@@ -172,6 +258,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
   return (
     <>
+      {editModal}
       {deleteModal}
       <section className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-md">
       <div className="flex items-center justify-between gap-2">
@@ -230,12 +317,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               </tr>
             ) : (
               entries.map((entry) => {
-                const isEditing = editingId === entry.id;
                 const isDeleting = deleteConfirmId === entry.id;
                 return (
                   <tr
                     key={entry.id}
-                    className={`border-b border-slate-800/70 align-top last:border-0 ${isDeleting ? "bg-red-950/50 ring-2 ring-inset ring-red-500/80" : ""}`}
+                    onDoubleClick={() => openEditModal(entry)}
+                    className={`cursor-pointer border-b border-slate-800/70 align-top last:border-0 hover:bg-slate-800/30 ${isDeleting ? "bg-red-950/50 ring-2 ring-inset ring-red-500/80" : ""}`}
                   >
                     <td className="max-w-xl px-2 py-2 text-sm text-slate-100">
                       {entry.content}
@@ -244,59 +331,17 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       {entry.priority ?? "medium"}
                     </td>
                     <td className="px-2 py-2">
-                      {isEditing ? (
-                        <div className="space-y-2">
-                          <TagInput
-                            value={editingTags}
-                            onChange={setEditingTags}
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                void saveEdit();
-                              }}
-                              disabled={savingId === entry.id}
-                              className="rounded-md bg-sky-500 px-2 py-1 text-xs font-semibold text-slate-950 hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-600"
-                            >
-                              {savingId === entry.id ? "Saving..." : "Save"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                cancelEdit();
-                              }}
-                              disabled={savingId === entry.id}
-                              className="rounded-md border border-slate-600 px-2 py-1 text-xs font-medium text-slate-200 hover:bg-slate-800"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {entry.tags.length === 0 ? (
-                            <span className="text-xs text-slate-500">
-                              No tags
-                            </span>
-                          ) : (
-                            entry.tags.map((t) => (
-                              <TagChip key={t} label={t} />
-                            ))
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => beginEdit(entry)}
-                            className="ml-1 rounded-full border border-slate-600 px-2 py-0.5 text-[10px] font-medium text-slate-300 hover:bg-slate-800"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {entry.tags.length === 0 ? (
+                          <span className="text-xs text-slate-500">
+                            No tags
+                          </span>
+                        ) : (
+                          entry.tags.map((t) => (
+                            <TagChip key={t} label={t} />
+                          ))
+                        )}
+                      </div>
                     </td>
                     <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-400">
                       {new Date(entry.created_at).toLocaleString()}
@@ -309,6 +354,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           e.stopPropagation();
                           openDeleteConfirm(entry.id);
                         }}
+                        onDoubleClick={(e) => e.stopPropagation()}
                         disabled={deletingId === entry.id}
                         className="rounded-md border border-red-800/80 px-2 py-1 text-[10px] font-medium text-red-300 hover:bg-red-900/40 disabled:cursor-not-allowed disabled:opacity-50"
                       >

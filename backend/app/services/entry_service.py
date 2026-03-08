@@ -4,7 +4,7 @@ from uuid import UUID
 from supabase import Client
 
 from ..models import EntryDB, EntryTagDB, EntryWithTags
-from ..schemas import EntryCreateRequest, EntryQueryParams
+from ..schemas import EntryCreateRequest, EntryQueryParams, EntryUpdateRequest
 from .tag_service import get_or_create_tags
 
 
@@ -41,6 +41,34 @@ async def delete_entry(client: Client, entry_id: UUID) -> None:
     # Supabase delete returns the deleted rows; if nothing deleted, entry didn't exist
     if not resp.data or len(resp.data) == 0:
         raise ValueError("Entry not found")
+
+
+async def update_entry(client: Client, entry_id: UUID, payload: EntryUpdateRequest) -> EntryWithTags:
+    """Update an entry's content, priority, and tags."""
+    entry_resp = client.table("entries").select("*").eq("id", str(entry_id)).single().execute()
+    if not entry_resp.data:
+        raise ValueError("Entry not found")
+
+    client.table("entries").update({
+        "content": payload.content,
+        "priority": payload.priority,
+    }).eq("id", str(entry_id)).execute()
+
+    client.table("entry_tags").delete().eq("entry_id", str(entry_id)).execute()
+    tag_models = await get_or_create_tags(client, payload.tags)
+    if tag_models:
+        rows = [{"entry_id": str(entry_id), "tag_id": str(tag.id)} for tag in tag_models]
+        client.table("entry_tags").insert(rows).execute()
+
+    updated = client.table("entries").select("*").eq("id", str(entry_id)).single().execute()
+    entry = EntryDB(**updated.data)
+    return EntryWithTags(
+        id=entry.id,
+        content=entry.content,
+        priority=entry.priority,
+        created_at=entry.created_at,
+        tags=[t.name for t in tag_models],
+    )
 
 
 async def update_entry_tags(client: Client, entry_id: UUID, tags: Iterable[str]) -> EntryWithTags:

@@ -97,6 +97,33 @@ export async function deleteEntry(entryId: string): Promise<void> {
   }
 }
 
+export async function updateEntry(
+  entryId: string,
+  payload: { content: string; priority: Priority; tags: string[] }
+): Promise<Entry> {
+  const tags = (payload.tags || [])
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  const res = await fetch(`${API_URL}/entries/${entryId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      content: payload.content,
+      priority: payload.priority ?? "medium",
+      tags,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? "Failed to update entry");
+  }
+
+  return res.json();
+}
+
 export async function updateEntryTags(entryId: string, tags: string[]): Promise<Entry> {
   const normalized = tags.map((t) => t.trim().toLowerCase()).filter(Boolean);
   const res = await fetch(`${API_URL}/entries/${entryId}/tags`, {

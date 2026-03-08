@@ -9,8 +9,9 @@ from ..schemas import (
     EntryQueryParams,
     EntryResponse,
     EntryTagsUpdateRequest,
+    EntryUpdateRequest,
 )
-from ..services.entry_service import create_entry_with_tags, delete_entry, list_entries, update_entry_tags
+from ..services.entry_service import create_entry_with_tags, delete_entry, list_entries, update_entry, update_entry_tags
 
 
 router = APIRouter(prefix="/entries", tags=["entries"])
@@ -64,6 +65,21 @@ async def delete_entry_endpoint(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=f"Failed to delete entry: {exc}") from exc
+
+
+@router.put("/{entry_id}", response_model=EntryResponse)
+async def update_entry_endpoint(
+    entry_id: UUID,
+    body: EntryUpdateRequest,
+    client=Depends(get_supabase_client),
+) -> EntryResponse:
+    try:
+        entry = await update_entry(client, entry_id, body)
+        return EntryResponse(**entry.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        raise HTTPException(status_code=500, detail=f"Failed to update entry: {exc}") from exc
 
 
 @router.put("/{entry_id}/tags", response_model=EntryResponse)

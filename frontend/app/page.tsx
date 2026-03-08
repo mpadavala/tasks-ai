@@ -10,7 +10,7 @@ import {
   deleteEntry,
   fetchEntries,
   fetchTags,
-  updateEntryTags,
+  updateEntry,
 } from "@/lib/api";
 import { EntryForm } from "@/components/EntryForm";
 import { SearchBar } from "@/components/SearchBar";
@@ -88,8 +88,11 @@ export default function Home() {
     void loadEntries({ page: 0 });
   };
 
-  const handleUpdateEntryTags = async (entryId: string, tags: string[]) => {
-    const updated = await updateEntryTags(entryId, tags);
+  const handleUpdateEntry = async (
+    entryId: string,
+    payload: { content: string; priority: "high" | "medium" | "low"; tags: string[] }
+  ) => {
+    const updated = await updateEntry(entryId, payload);
     setEntries((prev) =>
       prev.map((e) => (e.id === updated.id ? updated : e)),
     );
@@ -155,7 +158,7 @@ export default function Home() {
         sortBy={sortBy}
         order={order}
         onSortChange={handleSortChange}
-        onUpdateEntryTags={handleUpdateEntryTags}
+        onUpdateEntry={handleUpdateEntry}
         onDeleteEntry={handleDeleteEntry}
         loading={loading}
       />

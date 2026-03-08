@@ -54,7 +54,7 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
     >
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
-          New Entry
+          New Task
         </h2>
         {error && (
           <p className="text-xs text-red-400" role="alert">
@@ -105,7 +105,7 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
           disabled={submitting || !content.trim()}
           className="inline-flex items-center rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-600"
         >
-          {submitting ? "Saving..." : "Save Entry"}
+          {submitting ? "Saving..." : "Save Task"}
         </button>
       </div>
     </form>

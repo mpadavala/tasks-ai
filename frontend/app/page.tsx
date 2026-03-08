@@ -196,7 +196,7 @@ export default function Home() {
                 : "bg-slate-800/60 text-slate-300 hover:bg-slate-700"
             }`}
           >
-            New Entry
+            New Task
           </button>
           <button
             type="button"

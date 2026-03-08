@@ -32,22 +32,28 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadEntries = async (overrides?: Partial<{ page: number }>) => {
+  const loadEntries = async (
+    overrides?: Partial<{ page: number; sortBy: SortBy; order: SortOrder }>
+  ) => {
     const effectivePage = overrides?.page ?? page;
+    const effectiveSortBy = overrides?.sortBy ?? sortBy;
+    const effectiveOrder = overrides?.order ?? order;
     setLoading(true);
     setError(null);
     try {
       const res: EntryListResponse = await fetchEntries({
         search: search || undefined,
         tag: tagFilter || undefined,
-        sort_by: sortBy,
-        order,
+        sort_by: effectiveSortBy,
+        order: effectiveOrder,
         limit: PAGE_SIZE,
         offset: effectivePage * PAGE_SIZE,
       });
       setEntries(res.items);
       setTotal(res.total);
       setPage(effectivePage);
+      if (overrides?.sortBy !== undefined) setSortBy(overrides.sortBy);
+      if (overrides?.order !== undefined) setOrder(overrides.order);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load entries");
     } finally {
@@ -71,10 +77,14 @@ export default function Home() {
   }, []);
 
   const handleCreated = (entry: Entry) => {
-    // Optimistically prepend new entry and refetch list for consistency
+    // Show newest first so the new entry appears at the top
     setEntries((prev) => [entry, ...prev]);
     setTotal((prev) => prev + 1);
-    void loadEntries({ page: 0 });
+    void loadEntries({
+      page: 0,
+      sortBy: "created_at",
+      order: "desc",
+    });
     void refreshTagsForFilter();
   };
 

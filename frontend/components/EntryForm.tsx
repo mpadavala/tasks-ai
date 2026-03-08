@@ -55,6 +55,14 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
         placeholder="Write your market note, idea, or observation..."
         value={content}
         onChange={(e) => setContent(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (content.trim()) {
+              e.currentTarget.form?.requestSubmit();
+            }
+          }
+        }}
         suppressHydrationWarning
       />
       <div className="space-y-1">

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 
@@ -30,33 +29,21 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   "aria-label": ariaLabel,
 }) => {
   const [open, setOpen] = useState(false);
+  const [dropdownTop, setDropdownTop] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownRect, setDropdownRect] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
   const selectedDate = toDate(value);
 
-  const updateRect = () => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setDropdownRect({
-        top: rect.bottom,
-        left: rect.left,
-      });
+  const openPicker = () => {
+    if (buttonRef.current) {
+      setDropdownTop(buttonRef.current.offsetHeight + 4);
+      setOpen(true);
     } else {
-      setDropdownRect(null);
+      setOpen((prev) => !prev);
     }
   };
-
-  useEffect(() => {
-    if (open) updateRect();
-    else setDropdownRect(null);
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,47 +61,16 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     return () => document.removeEventListener("mousedown", handleMouseDown);
   }, [open]);
 
-  const dropdown =
-    mounted &&
-    open &&
-    dropdownRect &&
-    typeof document !== "undefined"
-      ? createPortal(
-          <div
-            ref={dropdownRef}
-            className="rdp-dark fixed z-[100] rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-xl"
-            style={{
-              top: dropdownRect.top + 4,
-              left: dropdownRect.left,
-            }}
-          >
-            <DayPicker
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => {
-                if (date) {
-                  onChange(fromDate(date));
-                  setOpen(false);
-                }
-              }}
-              weekStartsOn={1}
-              defaultMonth={selectedDate ?? new Date()}
-              className="rdp-root"
-            />
-          </div>,
-          document.body
-        )
-      : null;
-
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative inline-block overflow-visible">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={openPicker}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            setOpen((prev) => !prev);
+            openPicker();
           }
         }}
         aria-label={ariaLabel ?? "Choose due date"}
@@ -124,7 +80,27 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
       >
         {value || "Select date"}
       </button>
-      {dropdown}
+      {open && (
+        <div
+          ref={dropdownRef}
+          className="rdp-dark absolute left-0 z-[100] rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-xl"
+          style={{ top: dropdownTop }}
+        >
+          <DayPicker
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => {
+              if (date) {
+                onChange(fromDate(date));
+                setOpen(false);
+              }
+            }}
+            weekStartsOn={1}
+            defaultMonth={selectedDate ?? new Date()}
+            className="rdp-root"
+          />
+        </div>
+      )}
     </div>
   );
 };

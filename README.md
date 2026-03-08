@@ -64,6 +64,8 @@ create table if not exists public.entries (
   id uuid primary key default gen_random_uuid(),
   content text not null,
   priority text not null default 'medium' check (priority in ('high', 'medium', 'low')),
+  due_date date,
+  deleted_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -71,6 +73,12 @@ create table if not exists public.entries (
 alter table public.entries
   add column if not exists priority text not null default 'medium'
   check (priority in ('high', 'medium', 'low'));
+
+-- Due date (optional) and soft delete (completed/deleted at, purged after 30 days):
+alter table public.entries
+  add column if not exists due_date date;
+alter table public.entries
+  add column if not exists deleted_at timestamptz;
 
 -- Tags table
 create table if not exists public.tags (

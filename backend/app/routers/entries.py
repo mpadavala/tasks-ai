@@ -11,7 +11,7 @@ from ..schemas import (
     EntryTagsUpdateRequest,
     EntryUpdateRequest,
 )
-from ..services.entry_service import create_entry_with_tags, delete_entry, list_entries, update_entry, update_entry_tags
+from ..services.entry_service import create_entry_with_tags, list_entries, soft_delete_entry, update_entry, update_entry_tags
 
 
 router = APIRouter(prefix="/entries", tags=["entries"])
@@ -30,6 +30,8 @@ async def create_entry(body: EntryCreateRequest, client=Depends(get_supabase_cli
 async def get_entries(
     search: str | None = Query(default=None),
     tag: str | None = Query(default=None),
+    status: str = Query(default="active", pattern="^(active|completed)$"),
+    due_filter: str = Query(default="all", pattern="^(all|today|week|month)$"),
     sort_by: str = Query(default="created_at", pattern="^(content|created_at|tags|priority)$"),
     order: str = Query(default="desc", pattern="^(asc|desc)$"),
     limit: int = Query(default=20, ge=1, le=100),
@@ -39,6 +41,8 @@ async def get_entries(
     params = EntryQueryParams(
         search=search,
         tag=tag,
+        status=status,  # type: ignore[arg-type]
+        due_filter=due_filter,  # type: ignore[arg-type]
         sort_by=sort_by,  # type: ignore[arg-type]
         order=order,  # type: ignore[arg-type]
         limit=limit,
@@ -59,8 +63,9 @@ async def delete_entry_endpoint(
     entry_id: UUID,
     client=Depends(get_supabase_client),
 ) -> None:
+    """Soft delete (complete) the entry. It moves to Completed and is hard-deleted after 30 days."""
     try:
-        await delete_entry(client, entry_id)
+        await soft_delete_entry(client, entry_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover

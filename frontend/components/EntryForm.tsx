@@ -12,6 +12,7 @@ interface EntryFormProps {
 export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
   const [content, setContent] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
+  const [dueDate, setDueDate] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,10 +23,16 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
     setSubmitting(true);
     setError(null);
     try {
-      const entry = await createEntry({ content: content.trim(), priority, tags });
+      const entry = await createEntry({
+        content: content.trim(),
+        priority,
+        tags,
+        due_date: dueDate.trim() || null,
+      });
       onCreated(entry);
       setContent("");
       setPriority("medium");
+      setDueDate("");
       setTags([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create entry");
@@ -70,6 +77,17 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
           Priority
         </label>
         <PriorityInput value={priority} onChange={setPriority} />
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-slate-400">
+          Due date
+        </label>
+        <input
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          className="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none"
+        />
       </div>
       <div className="space-y-1">
         <label className="text-xs font-medium text-slate-400">

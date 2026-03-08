@@ -3,11 +3,16 @@ export type SortOrder = "asc" | "desc";
 
 export type Priority = "high" | "medium" | "low";
 
+export type StatusFilter = "active" | "completed";
+export type DueFilter = "all" | "today" | "week" | "month";
+
 export interface Entry {
   id: string;
   content: string;
   priority: Priority;
   created_at: string;
+  due_date: string | null;
+  deleted_at: string | null;
   tags: string[];
 }
 
@@ -42,17 +47,20 @@ export async function createEntry(input: {
   content: string;
   priority?: Priority;
   tags: string[];
+  due_date?: string | null;
 }): Promise<Entry> {
   const tags = (input.tags || [])
     .map((t) => t.trim().toLowerCase())
     .filter(Boolean);
   const priority = input.priority ?? "medium";
+  const body: Record<string, unknown> = { content: input.content, priority, tags };
+  if (input.due_date !== undefined && input.due_date !== "") body.due_date = input.due_date;
   const res = await fetch(`${API_URL}/entries`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ content: input.content, priority, tags }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -66,6 +74,8 @@ export async function createEntry(input: {
 export interface FetchEntriesOptions {
   search?: string;
   tag?: string;
+  status?: StatusFilter;
+  due_filter?: DueFilter;
   sort_by?: SortBy;
   order?: SortOrder;
   limit?: number;
@@ -99,21 +109,23 @@ export async function deleteEntry(entryId: string): Promise<void> {
 
 export async function updateEntry(
   entryId: string,
-  payload: { content: string; priority: Priority; tags: string[] }
+  payload: { content: string; priority: Priority; tags: string[]; due_date?: string | null }
 ): Promise<Entry> {
   const tags = (payload.tags || [])
     .map((t) => t.trim().toLowerCase())
     .filter(Boolean);
+  const body: Record<string, unknown> = {
+    content: payload.content,
+    priority: payload.priority ?? "medium",
+    tags,
+  };
+  if (payload.due_date !== undefined) body.due_date = payload.due_date || null;
   const res = await fetch(`${API_URL}/entries/${entryId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      content: payload.content,
-      priority: payload.priority ?? "medium",
-      tags,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {

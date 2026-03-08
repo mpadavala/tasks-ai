@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
@@ -12,6 +12,8 @@ class EntryDB(BaseModel):
     content: str
     priority: str = "medium"  # high | medium | low
     created_at: datetime
+    due_date: Optional[date] = None
+    deleted_at: Optional[datetime] = None
 
 
 class TagDB(BaseModel):
@@ -35,6 +37,8 @@ class EntryWithTags(BaseModel):
     content: str
     priority: str = "medium"
     created_at: datetime
+    due_date: Optional[date] = None
+    deleted_at: Optional[datetime] = None
     tags: list[str] = Field(default_factory=list)
 
 

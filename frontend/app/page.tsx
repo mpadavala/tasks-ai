@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import {
   Entry,
   EntryListResponse,
+  type DueFilter,
+  type StatusFilter,
   SortBy,
   SortOrder,
   Tag,
@@ -18,10 +20,29 @@ import { ResultsTable } from "@/components/ResultsTable";
 
 const PAGE_SIZE = 20;
 
+export type TabId = "today" | "week" | "month" | "all" | "completed";
+
+const TAB_STATUS: Record<TabId, StatusFilter> = {
+  today: "active",
+  week: "active",
+  month: "active",
+  all: "active",
+  completed: "completed",
+};
+
+const TAB_DUE_FILTER: Record<TabId, DueFilter> = {
+  today: "today",
+  week: "week",
+  month: "month",
+  all: "all",
+  completed: "all",
+};
+
 export default function Home() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
+  const [activeTab, setActiveTab] = useState<TabId>("all");
 
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("");
@@ -33,8 +54,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   const loadEntries = async (
-    overrides?: Partial<{ page: number; sortBy: SortBy; order: SortOrder }>
+    overrides?: Partial<{ page: number; sortBy: SortBy; order: SortOrder; tab: TabId }>
   ) => {
+    const effectiveTab = overrides?.tab ?? activeTab;
     const effectivePage = overrides?.page ?? page;
     const effectiveSortBy = overrides?.sortBy ?? sortBy;
     const effectiveOrder = overrides?.order ?? order;
@@ -44,6 +66,8 @@ export default function Home() {
       const res: EntryListResponse = await fetchEntries({
         search: search || undefined,
         tag: tagFilter || undefined,
+        status: TAB_STATUS[effectiveTab],
+        due_filter: TAB_DUE_FILTER[effectiveTab],
         sort_by: effectiveSortBy,
         order: effectiveOrder,
         limit: PAGE_SIZE,
@@ -52,6 +76,7 @@ export default function Home() {
       setEntries(res.items);
       setTotal(res.total);
       setPage(effectivePage);
+      if (overrides?.tab !== undefined) setActiveTab(overrides.tab);
       if (overrides?.sortBy !== undefined) setSortBy(overrides.sortBy);
       if (overrides?.order !== undefined) setOrder(overrides.order);
     } catch (err) {
@@ -71,17 +96,17 @@ export default function Home() {
   };
 
   useEffect(() => {
-    void loadEntries({ page: 0 });
+    void loadEntries({ page: 0, tab: activeTab });
     void refreshTagsForFilter();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreated = (entry: Entry) => {
-    // Show newest first so the new entry appears at the top
     setEntries((prev) => [entry, ...prev]);
     setTotal((prev) => prev + 1);
     void loadEntries({
       page: 0,
+      tab: activeTab,
       sortBy: "created_at",
       order: "desc",
     });
@@ -100,7 +125,7 @@ export default function Home() {
 
   const handleUpdateEntry = async (
     entryId: string,
-    payload: { content: string; priority: "high" | "medium" | "low"; tags: string[] }
+    payload: { content: string; priority: "high" | "medium" | "low"; tags: string[]; due_date?: string | null }
   ) => {
     const updated = await updateEntry(entryId, payload);
     setEntries((prev) =>
@@ -113,6 +138,7 @@ export default function Home() {
     await deleteEntry(entryId);
     setEntries((prev) => prev.filter((e) => e.id !== entryId));
     setTotal((prev) => Math.max(0, prev - 1));
+    void loadEntries({ page: 0 });
     void refreshTagsForFilter();
   };
 
@@ -144,6 +170,30 @@ export default function Home() {
 
       <section className="space-y-4">
         <EntryForm onCreated={handleCreated} />
+        <div className="flex flex-wrap gap-1 border-b border-slate-800 pb-2">
+          {(
+            [
+              { id: "today" as TabId, label: "Today" },
+              { id: "week" as TabId, label: "This Week" },
+              { id: "month" as TabId, label: "This Month" },
+              { id: "all" as TabId, label: "All" },
+              { id: "completed" as TabId, label: "Completed" },
+            ] as const
+          ).map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => void loadEntries({ page: 0, tab: id })}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+                activeTab === id
+                  ? "bg-sky-600 text-white"
+                  : "bg-slate-800/60 text-slate-300 hover:bg-slate-700"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <SearchBar
             search={search}
             onSearchChange={setSearch}
@@ -171,6 +221,7 @@ export default function Home() {
         onUpdateEntry={handleUpdateEntry}
         onDeleteEntry={handleDeleteEntry}
         loading={loading}
+        isCompletedTab={activeTab === "completed"}
       />
     </main>
   );

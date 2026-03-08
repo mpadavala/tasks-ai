@@ -1,3 +1,4 @@
+from datetime import date, datetime, timedelta, timezone
 from typing import Iterable
 from uuid import UUID
 
@@ -8,10 +9,16 @@ from ..schemas import EntryCreateRequest, EntryQueryParams, EntryUpdateRequest
 from .tag_service import get_or_create_tags
 
 
+def _today_utc() -> date:
+    return datetime.now(timezone.utc).date()
+
+
 async def create_entry_with_tags(client: Client, payload: EntryCreateRequest) -> EntryWithTags:
-    # Create entry
+    row: dict = {"content": payload.content, "priority": payload.priority}
+    if payload.due_date is not None:
+        row["due_date"] = payload.due_date.isoformat()
     insert_resp = client.table("entries").insert(
-        {"content": payload.content, "priority": payload.priority},
+        row,
         returning="representation",
     ).execute()
     if not insert_resp.data:
@@ -31,14 +38,23 @@ async def create_entry_with_tags(client: Client, payload: EntryCreateRequest) ->
         content=entry.content,
         priority=entry.priority,
         created_at=entry.created_at,
+        due_date=getattr(entry, "due_date", None),
+        deleted_at=getattr(entry, "deleted_at", None),
         tags=[t.name for t in tags],
     )
 
 
+async def soft_delete_entry(client: Client, entry_id: UUID) -> None:
+    """Mark an entry as completed/deleted (soft delete). Sets deleted_at to now."""
+    now = datetime.now(timezone.utc).isoformat()
+    resp = client.table("entries").update({"deleted_at": now}).eq("id", str(entry_id)).execute()
+    if not resp.data or len(resp.data) == 0:
+        raise ValueError("Entry not found")
+
+
 async def delete_entry(client: Client, entry_id: UUID) -> None:
-    """Delete an entry by id. entry_tags are removed by DB cascade."""
+    """Hard delete an entry by id. Prefer soft_delete_entry for user-facing delete."""
     resp = client.table("entries").delete().eq("id", str(entry_id)).execute()
-    # Supabase delete returns the deleted rows; if nothing deleted, entry didn't exist
     if not resp.data or len(resp.data) == 0:
         raise ValueError("Entry not found")
 
@@ -49,10 +65,12 @@ async def update_entry(client: Client, entry_id: UUID, payload: EntryUpdateReque
     if not entry_resp.data:
         raise ValueError("Entry not found")
 
-    client.table("entries").update({
+    update_row: dict = {
         "content": payload.content,
         "priority": payload.priority,
-    }).eq("id", str(entry_id)).execute()
+        "due_date": payload.due_date.isoformat() if payload.due_date else None,
+    }
+    client.table("entries").update(update_row).eq("id", str(entry_id)).execute()
 
     client.table("entry_tags").delete().eq("entry_id", str(entry_id)).execute()
     tag_models = await get_or_create_tags(client, payload.tags)
@@ -67,6 +85,8 @@ async def update_entry(client: Client, entry_id: UUID, payload: EntryUpdateReque
         content=entry.content,
         priority=entry.priority,
         created_at=entry.created_at,
+        due_date=getattr(entry, "due_date", None),
+        deleted_at=getattr(entry, "deleted_at", None),
         tags=[t.name for t in tag_models],
     )
 
@@ -94,6 +114,8 @@ async def update_entry_tags(client: Client, entry_id: UUID, tags: Iterable[str])
         content=entry.content,
         priority=entry.priority,
         created_at=entry.created_at,
+        due_date=getattr(entry, "due_date", None),
+        deleted_at=getattr(entry, "deleted_at", None),
         tags=[t.name for t in tag_models],
     )
 
@@ -116,6 +138,8 @@ def _entries_with_tags(
             content=e.content,
             priority=getattr(e, "priority", "medium"),
             created_at=e.created_at,
+            due_date=getattr(e, "due_date", None),
+            deleted_at=getattr(e, "deleted_at", None),
             tags=sorted(tags_for_entry.get(str(e.id), [])),
         )
         for e in entries
@@ -127,11 +151,39 @@ async def list_entries(
     params: EntryQueryParams,
 ) -> tuple[list[EntryWithTags], int]:
     """
-    Return entries with their tags, supporting search, tag filter, sorting, and pagination.
-
-    Sorting by "tags" is done in-memory (entries ordered by comma-joined sorted tag names).
+    Return entries with their tags. Supports status (active/completed), due_filter (today/week/month/all),
+    search, tag filter, sorting, and pagination. Completed entries older than 30 days are hard-deleted on list.
     """
+    # When listing completed, purge entries soft-deleted more than 30 days ago
+    if params.status == "completed":
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        client.table("entries").delete().not_.is_("deleted_at", "null").lt("deleted_at", cutoff).execute()
+
     query = client.table("entries").select("*", count="exact")
+
+    # Status: active = not deleted, completed = deleted
+    if params.status == "active":
+        query = query.is_("deleted_at", "null")
+    elif params.status == "completed":
+        query = query.not_.is_("deleted_at", "null")
+
+    # Due date filter (active only): today, this week, this month
+    if params.status == "active" and params.due_filter != "all":
+        today = _today_utc()
+        if params.due_filter == "today":
+            query = query.eq("due_date", today.isoformat())
+        elif params.due_filter == "week":
+            # ISO week: Monday is day 0
+            start = today - timedelta(days=today.weekday())
+            end = start + timedelta(days=6)
+            query = query.gte("due_date", start.isoformat()).lte("due_date", end.isoformat())
+        elif params.due_filter == "month":
+            start = today.replace(day=1)
+            if today.month == 12:
+                end = today.replace(month=12, day=31)
+            else:
+                end = (today.replace(month=today.month + 1, day=1) - timedelta(days=1))
+            query = query.gte("due_date", start.isoformat()).lte("due_date", end.isoformat())
 
     # Full text style search using ILIKE for simplicity
     if params.search:
@@ -163,6 +215,22 @@ async def list_entries(
         fetch_end = min(total_count - 1, 4999)
         # Rebuild filtered query for data fetch (builder not reused after execute)
         data_query = client.table("entries").select("*")
+        if params.status == "active":
+            data_query = data_query.is_("deleted_at", "null")
+        elif params.status == "completed":
+            data_query = data_query.not_.is_("deleted_at", "null")
+        if params.status == "active" and params.due_filter != "all":
+            today = _today_utc()
+            if params.due_filter == "today":
+                data_query = data_query.eq("due_date", today.isoformat())
+            elif params.due_filter == "week":
+                start = today - timedelta(days=today.weekday())
+                end = start + timedelta(days=6)
+                data_query = data_query.gte("due_date", start.isoformat()).lte("due_date", end.isoformat())
+            elif params.due_filter == "month":
+                start = today.replace(day=1)
+                end = (today.replace(month=today.month + 1, day=1) - timedelta(days=1)) if today.month < 12 else today.replace(month=12, day=31)
+                data_query = data_query.gte("due_date", start.isoformat()).lte("due_date", end.isoformat())
         if params.search:
             data_query = data_query.ilike("content", f"%{params.search}%")
         if entry_ids_filter is not None:

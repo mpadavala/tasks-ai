@@ -16,9 +16,10 @@ interface ResultsTableProps {
   sortBy: SortBy;
   order: SortOrder;
   onSortChange: (sortBy: SortBy, order: SortOrder) => void;
-  onUpdateEntry: (entryId: string, payload: { content: string; priority: Priority; tags: string[] }) => Promise<Entry>;
+  onUpdateEntry: (entryId: string, payload: { content: string; priority: Priority; tags: string[]; due_date?: string | null }) => Promise<Entry>;
   onDeleteEntry: (entryId: string) => Promise<void>;
   loading: boolean;
+  isCompletedTab?: boolean;
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -33,10 +34,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onUpdateEntry,
   onDeleteEntry,
   loading,
+  isCompletedTab = false,
 }) => {
   const [editModalEntry, setEditModalEntry] = useState<Entry | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editPriority, setEditPriority] = useState<Priority>("medium");
+  const [editDueDate, setEditDueDate] = useState("");
   const [editTags, setEditTags] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -54,6 +57,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     setEditModalEntry(entry);
     setEditContent(entry.content);
     setEditPriority((entry.priority as Priority) ?? "medium");
+    setEditDueDate(entry.due_date ?? "");
     setEditTags(entry.tags);
     setError(null);
   };
@@ -67,6 +71,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     editModalEntry &&
     (editContent !== editModalEntry.content ||
       editPriority !== (editModalEntry.priority ?? "medium") ||
+      (editDueDate || null) !== (editModalEntry.due_date ?? null) ||
       JSON.stringify([...editTags].sort()) !== JSON.stringify([...editModalEntry.tags].sort()));
 
   const saveEdit = async () => {
@@ -78,6 +83,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         content: editContent.trim(),
         priority: editPriority,
         tags: editTags,
+        due_date: editDueDate.trim() || null,
       });
       closeEditModal();
     } catch (err) {
@@ -175,6 +181,15 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               <div className="mt-1">
                 <PriorityInput value={editPriority} onChange={setEditPriority} />
               </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-400">Due date</label>
+              <input
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+                className="mt-1 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none"
+              />
             </div>
             <div>
               <label className="text-xs font-medium text-slate-400">Tags</label>
@@ -295,6 +310,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 Priority{" "}
                 {sortBy === "priority" && (order === "asc" ? "↑" : "↓")}
               </th>
+              <th className="px-2 py-2">Due date</th>
               <th
                 className="px-2 py-2 cursor-pointer select-none"
                 onClick={() => toggleSort("tags")}
@@ -315,7 +331,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             {entries.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="px-2 py-8 text-center text-xs text-slate-500"
                 >
                   {loading ? "Loading..." : "No tasks match your filters."}
@@ -336,6 +352,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     <td className="whitespace-nowrap px-2 py-2 text-xs capitalize text-slate-300">
                       {entry.priority ?? "medium"}
                     </td>
+                    <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-400">
+                      {entry.due_date ? new Date(entry.due_date + "T12:00:00").toLocaleDateString() : "—"}
+                    </td>
                     <td className="px-2 py-2">
                       <div className="flex flex-wrap items-center gap-1.5">
                         {entry.tags.length === 0 ? (
@@ -353,19 +372,21 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                       {new Date(entry.created_at).toLocaleString()}
                     </td>
                     <td className="px-2 py-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          openDeleteConfirm(entry.id);
-                        }}
-                        onDoubleClick={(e) => e.stopPropagation()}
-                        disabled={deletingId === entry.id}
-                        className="rounded-md border border-red-800/80 px-2 py-1 text-[10px] font-medium text-red-300 hover:bg-red-900/40 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {deletingId === entry.id ? "Deleting..." : "Delete"}
-                      </button>
+                      {!isCompletedTab && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            openDeleteConfirm(entry.id);
+                          }}
+                          onDoubleClick={(e) => e.stopPropagation()}
+                          disabled={deletingId === entry.id}
+                          className="rounded-md border border-red-800/80 px-2 py-1 text-[10px] font-medium text-red-300 hover:bg-red-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {deletingId === entry.id ? "Deleting..." : "Delete"}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

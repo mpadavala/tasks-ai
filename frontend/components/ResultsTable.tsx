@@ -348,11 +348,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             ) : (
               entries.map((entry) => {
                 const isDeleting = deleteConfirmId === entry.id;
+                const today = new Date().toISOString().slice(0, 10);
+                const isOverdue =
+                  !isCompletedTab &&
+                  !!entry.due_date &&
+                  entry.due_date < today;
                 return (
                   <tr
                     key={entry.id}
                     onDoubleClick={() => openEditModal(entry)}
-                    className={`cursor-pointer border-b border-slate-800/70 align-top last:border-0 hover:bg-slate-800/30 ${isDeleting ? "bg-red-950/50 ring-2 ring-inset ring-red-500/80" : ""}`}
+                    className={`cursor-pointer border-b border-slate-800/70 align-top last:border-0 hover:bg-slate-800/30 ${isDeleting ? "bg-red-950/50 ring-2 ring-inset ring-red-500/80" : isOverdue ? "bg-amber-950/25 hover:bg-amber-950/40" : ""}`}
                   >
                     <td className="max-w-xl px-2 py-2 text-sm text-slate-100">
                       {entry.content}
@@ -373,8 +378,15 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     <td className="whitespace-nowrap px-2 py-2 text-xs capitalize text-slate-300">
                       {entry.priority ?? "medium"}
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-400">
+                    <td
+                      className={`whitespace-nowrap px-2 py-2 text-xs ${isOverdue ? "text-amber-400 font-medium" : "text-slate-400"}`}
+                    >
                       {entry.due_date ? new Date(entry.due_date + "T12:00:00").toLocaleDateString() : "—"}
+                      {isOverdue && entry.due_date ? (
+                        <span className="ml-1 text-[10px] text-amber-500/90">
+                          (overdue)
+                        </span>
+                      ) : null}
                     </td>
                     <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-400">
                       {new Date(entry.created_at).toLocaleString()}

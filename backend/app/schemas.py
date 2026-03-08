@@ -5,14 +5,19 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+Priority = Literal["high", "medium", "low"]
+
+
 class EntryCreateRequest(BaseModel):
     content: str = Field(..., min_length=1)
+    priority: Priority = "medium"
     tags: list[str] = Field(default_factory=list)
 
 
 class EntryResponse(BaseModel):
     id: UUID
     content: str
+    priority: str = "medium"
     created_at: datetime
     tags: list[str] = Field(default_factory=list)
 

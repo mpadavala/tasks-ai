@@ -66,6 +66,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         >
           <option value="created_at">Created At</option>
           <option value="content">Content</option>
+          <option value="tags">Tags</option>
         </select>
         <select
           value={order}

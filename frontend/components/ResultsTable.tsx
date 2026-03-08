@@ -201,6 +201,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               >
                 Content {sortBy === "content" && (order === "asc" ? "↑" : "↓")}
               </th>
+              <th className="px-2 py-2">Priority</th>
               <th
                 className="px-2 py-2 cursor-pointer select-none"
                 onClick={() => toggleSort("tags")}
@@ -221,7 +222,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             {entries.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={5}
                   className="px-2 py-8 text-center text-xs text-slate-500"
                 >
                   {loading ? "Loading..." : "No tasks match your filters."}
@@ -238,6 +239,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   >
                     <td className="max-w-xl px-2 py-2 text-sm text-slate-100">
                       {entry.content}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2 text-xs capitalize text-slate-300">
+                      {entry.priority ?? "medium"}
                     </td>
                     <td className="px-2 py-2">
                       {isEditing ? (

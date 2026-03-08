@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { createEntry, Entry } from "@/lib/api";
+import { createEntry, Entry, type Priority } from "@/lib/api";
+import { PriorityInput } from "./PriorityInput";
 import { TagInput } from "./TagInput";
 
 interface EntryFormProps {
@@ -10,6 +11,7 @@ interface EntryFormProps {
 
 export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
   const [content, setContent] = useState("");
+  const [priority, setPriority] = useState<Priority>("medium");
   const [tags, setTags] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,9 +22,10 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
     setSubmitting(true);
     setError(null);
     try {
-      const entry = await createEntry({ content: content.trim(), tags });
+      const entry = await createEntry({ content: content.trim(), priority, tags });
       onCreated(entry);
       setContent("");
+      setPriority("medium");
       setTags([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create entry");
@@ -54,6 +57,12 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
         onChange={(e) => setContent(e.target.value)}
         suppressHydrationWarning
       />
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-slate-400">
+          Priority
+        </label>
+        <PriorityInput value={priority} onChange={setPriority} />
+      </div>
       <div className="space-y-1">
         <label className="text-xs font-medium text-slate-400">
           Tags

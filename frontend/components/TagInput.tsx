@@ -24,6 +24,7 @@ export const TagInput: React.FC<TagInputProps> = ({
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownRect, setDropdownRect] = useState<{
     top: number;
     left: number;
@@ -112,10 +113,28 @@ export const TagInput: React.FC<TagInputProps> = ({
     }
   }, [open, visibleSuggestions.length, updateDropdownRect]);
 
+  // Close dropdown when clicking outside the input or the dropdown
+  useEffect(() => {
+    if (!open) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        containerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [open]);
+
   const dropdownContent =
     open && visibleSuggestions.length > 0 && dropdownRect && typeof document !== "undefined"
       ? createPortal(
           <div
+            ref={dropdownRef}
             className="fixed z-[100] max-h-48 overflow-auto rounded-md border border-slate-700 bg-slate-900 shadow-lg"
             style={{
               top: dropdownRect.top + 4,

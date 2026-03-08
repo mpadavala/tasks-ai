@@ -1,9 +1,12 @@
 export type SortBy = "content" | "created_at" | "tags";
 export type SortOrder = "asc" | "desc";
 
+export type Priority = "high" | "medium" | "low";
+
 export interface Entry {
   id: string;
   content: string;
+  priority: Priority;
   created_at: string;
   tags: string[];
 }
@@ -37,17 +40,19 @@ function buildQuery(params: Record<string, string | number | undefined>): string
 
 export async function createEntry(input: {
   content: string;
+  priority?: Priority;
   tags: string[];
 }): Promise<Entry> {
   const tags = (input.tags || [])
     .map((t) => t.trim().toLowerCase())
     .filter(Boolean);
+  const priority = input.priority ?? "medium";
   const res = await fetch(`${API_URL}/entries`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ content: input.content, tags }),
+    body: JSON.stringify({ content: input.content, priority, tags }),
   });
 
   if (!res.ok) {

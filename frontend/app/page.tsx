@@ -129,12 +129,9 @@ export default function Home() {
         )}
       </header>
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.5fr)]">
-        <div className="space-y-4">
-          <EntryForm onCreated={handleCreated} />
-        </div>
-        <div className="space-y-4">
-          <SearchBar
+      <section className="space-y-4">
+        <EntryForm onCreated={handleCreated} />
+        <SearchBar
             search={search}
             onSearchChange={setSearch}
             tagFilter={tagFilter}
@@ -147,7 +144,6 @@ export default function Home() {
             onSubmitSearch={handleSubmitSearch}
             onFetchAll={handleFetchAll}
           />
-        </div>
       </section>
 
       <ResultsTable

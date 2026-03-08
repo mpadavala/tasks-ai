@@ -10,6 +10,7 @@ class EntryDB(BaseModel):
 
     id: UUID
     content: str
+    priority: str = "medium"  # high | medium | low
     created_at: datetime
 
 
@@ -32,6 +33,7 @@ class EntryWithTags(BaseModel):
 
     id: UUID
     content: str
+    priority: str = "medium"
     created_at: datetime
     tags: list[str] = Field(default_factory=list)
 

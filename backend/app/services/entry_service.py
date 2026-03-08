@@ -11,7 +11,7 @@ from .tag_service import get_or_create_tags
 async def create_entry_with_tags(client: Client, payload: EntryCreateRequest) -> EntryWithTags:
     # Create entry
     insert_resp = client.table("entries").insert(
-        {"content": payload.content},
+        {"content": payload.content, "priority": payload.priority},
         returning="representation",
     ).execute()
     if not insert_resp.data:
@@ -26,7 +26,13 @@ async def create_entry_with_tags(client: Client, payload: EntryCreateRequest) ->
         junction_rows = [{"entry_id": str(entry.id), "tag_id": str(tag.id)} for tag in tags]
         client.table("entry_tags").insert(junction_rows).execute()
 
-    return EntryWithTags(id=entry.id, content=entry.content, created_at=entry.created_at, tags=[t.name for t in tags])
+    return EntryWithTags(
+        id=entry.id,
+        content=entry.content,
+        priority=entry.priority,
+        created_at=entry.created_at,
+        tags=[t.name for t in tags],
+    )
 
 
 async def delete_entry(client: Client, entry_id: UUID) -> None:
@@ -58,6 +64,7 @@ async def update_entry_tags(client: Client, entry_id: UUID, tags: Iterable[str])
     return EntryWithTags(
         id=entry.id,
         content=entry.content,
+        priority=entry.priority,
         created_at=entry.created_at,
         tags=[t.name for t in tag_models],
     )
@@ -79,6 +86,7 @@ def _entries_with_tags(
         EntryWithTags(
             id=e.id,
             content=e.content,
+            priority=getattr(e, "priority", "medium"),
             created_at=e.created_at,
             tags=sorted(tags_for_entry.get(str(e.id), [])),
         )

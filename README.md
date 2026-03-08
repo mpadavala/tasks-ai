@@ -63,8 +63,14 @@ create extension if not exists "pgcrypto";
 create table if not exists public.entries (
   id uuid primary key default gen_random_uuid(),
   content text not null,
+  priority text not null default 'medium' check (priority in ('high', 'medium', 'low')),
   created_at timestamptz not null default now()
 );
+
+-- If the table already exists without priority, add the column:
+alter table public.entries
+  add column if not exists priority text not null default 'medium'
+  check (priority in ('high', 'medium', 'low'));
 
 -- Tags table
 create table if not exists public.tags (

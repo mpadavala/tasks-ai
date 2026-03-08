@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import type { SortBy, SortOrder, Tag } from "@/lib/api";
+import { DarkSelect } from "./DarkSelect";
 
 interface SearchBarProps {
   search: string;
@@ -17,6 +18,17 @@ interface SearchBarProps {
   onFetchAll: () => void;
 }
 
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+  { value: "created_at", label: "Created At" },
+  { value: "content", label: "Content" },
+  { value: "tags", label: "Tags" },
+];
+
+const ORDER_OPTIONS: { value: SortOrder; label: string }[] = [
+  { value: "desc", label: "Desc" },
+  { value: "asc", label: "Asc" },
+];
+
 export const SearchBar: React.FC<SearchBarProps> = ({
   search,
   onSearchChange,
@@ -30,6 +42,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onSubmitSearch,
   onFetchAll,
 }) => {
+  const tagOptions = useMemo(
+    () => [
+      { value: "", label: "All tags" },
+      ...[...tagsForFilter]
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+        .map((t) => ({ value: t.name, label: t.name })),
+    ],
+    [tagsForFilter]
+  );
+
   return (
     <section className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-md">
       <div className="flex items-center justify-between gap-2">
@@ -45,37 +67,25 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           placeholder="Search content..."
           className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-sm text-slate-50 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
         />
-        <select
+        <DarkSelect
           value={tagFilter}
-          onChange={(e) => onTagFilterChange(e.target.value)}
-          className="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none"
-        >
-          <option value="">All tags</option>
-          {[...tagsForFilter]
-            .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
-            .map((t) => (
-              <option key={t.id} value={t.name}>
-                {t.name}
-              </option>
-            ))}
-        </select>
-        <select
+          onChange={onTagFilterChange}
+          options={tagOptions}
+          placeholder="All tags"
+          aria-label="Filter by tag"
+        />
+        <DarkSelect
           value={sortBy}
-          onChange={(e) => onSortByChange(e.target.value as SortBy)}
-          className="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none"
-        >
-          <option value="created_at">Created At</option>
-          <option value="content">Content</option>
-          <option value="tags">Tags</option>
-        </select>
-        <select
+          onChange={(v) => onSortByChange(v as SortBy)}
+          options={SORT_OPTIONS}
+          aria-label="Sort by"
+        />
+        <DarkSelect
           value={order}
-          onChange={(e) => onOrderChange(e.target.value as SortOrder)}
-          className="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none"
-        >
-          <option value="desc">Desc</option>
-          <option value="asc">Asc</option>
-        </select>
+          onChange={(v) => onOrderChange(v as SortOrder)}
+          options={ORDER_OPTIONS}
+          aria-label="Order"
+        />
       </div>
       <div className="flex justify-end gap-2">
         <button

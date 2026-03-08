@@ -63,6 +63,29 @@ async def update_entry_tags(client: Client, entry_id: UUID, tags: Iterable[str])
     )
 
 
+def _entries_with_tags(
+    entries: list[EntryDB],
+    et_rows: list[EntryTagDB],
+    tags_by_id: dict[str, str],
+) -> list[EntryWithTags]:
+    """Build EntryWithTags list from entries and junction/tag data."""
+    tags_for_entry: dict[str, list[str]] = {str(e.id): [] for e in entries}
+    for link in et_rows:
+        eid = str(link.entry_id)
+        tid = str(link.tag_id)
+        if eid in tags_for_entry and tid in tags_by_id:
+            tags_for_entry[eid].append(tags_by_id[tid])
+    return [
+        EntryWithTags(
+            id=e.id,
+            content=e.content,
+            created_at=e.created_at,
+            tags=sorted(tags_for_entry.get(str(e.id), [])),
+        )
+        for e in entries
+    ]
+
+
 async def list_entries(
     client: Client,
     params: EntryQueryParams,
@@ -70,10 +93,7 @@ async def list_entries(
     """
     Return entries with their tags, supporting search, tag filter, sorting, and pagination.
 
-    To avoid N+1 queries, this function:
-    - Fetches entries with filters and pagination
-    - Fetches entry_tags for the result set
-    - Fetches involved tags in a single query
+    Sorting by "tags" is done in-memory (entries ordered by comma-joined sorted tag names).
     """
     query = client.table("entries").select("*", count="exact")
 
@@ -81,27 +101,57 @@ async def list_entries(
     if params.search:
         query = query.ilike("content", f"%{params.search}%")
 
-    # Tag filter using a join via entry_tags
+    # Tag filter using a join via entry_tags (tag names are stored lowercase)
+    entry_ids_filter: list[str] | None = None
     if params.tag:
-        # Find tag id for provided name
-        tag_resp = client.table("tags").select("id").eq("name", params.tag).single().execute()
+        tag_name = params.tag.strip().lower()
+        tag_resp = client.table("tags").select("id").eq("name", tag_name).single().execute()
         if not tag_resp.data:
             return [], 0
         tag_id = tag_resp.data["id"]
 
         et_resp = client.table("entry_tags").select("entry_id").eq("tag_id", tag_id).execute()
-        entry_ids = [row["entry_id"] for row in (et_resp.data or [])]
-        if not entry_ids:
+        entry_ids_filter = [row["entry_id"] for row in (et_resp.data or [])]
+        if not entry_ids_filter:
             return [], 0
-        query = query.in_("id", entry_ids)
+        query = query.in_("id", entry_ids_filter)
 
-    # Sorting
-    sort_column = params.sort_by
     ascending = params.order == "asc"
-    query = query.order(sort_column, desc=not ascending)
 
-    # Pagination
-    # Supabase range is inclusive, so last index is offset + limit - 1
+    if params.sort_by == "tags":
+        # Sort by tags: fetch all matching entries, attach tags, sort in Python, then slice
+        count_resp = query.range(0, 0).execute()
+        total_count = count_resp.count or 0
+        if total_count == 0:
+            return [], 0
+        fetch_end = min(total_count - 1, 4999)
+        # Rebuild filtered query for data fetch (builder not reused after execute)
+        data_query = client.table("entries").select("*")
+        if params.search:
+            data_query = data_query.ilike("content", f"%{params.search}%")
+        if entry_ids_filter is not None:
+            data_query = data_query.in_("id", entry_ids_filter)
+        full_resp = data_query.order("id", desc=False).range(0, fetch_end).execute()
+        raw_entries = full_resp.data or []
+        entries = [EntryDB(**row) for row in raw_entries]
+        entry_ids_list = [str(e.id) for e in entries]
+        et_resp = client.table("entry_tags").select("*").in_("entry_id", entry_ids_list).execute()
+        et_rows = [EntryTagDB(**row) for row in (et_resp.data or [])]
+        tag_ids = sorted({str(r.tag_id) for r in et_rows})
+        tags_resp = client.table("tags").select("*").in_("id", tag_ids).execute()
+        tags_by_id = {str(row["id"]): row["name"] for row in (tags_resp.data or [])}
+        results = _entries_with_tags(entries, et_rows, tags_by_id)
+        results.sort(
+            key=lambda e: ",".join(e.tags),
+            reverse=not ascending,
+        )
+        start = params.offset
+        end = params.offset + params.limit
+        return results[start:end], total_count
+
+    # DB-backed sort (content, created_at)
+    sort_column = params.sort_by
+    query = query.order(sort_column, desc=not ascending)
     start = params.offset
     end = params.offset + params.limit - 1
     query = query.range(start, end)
@@ -113,40 +163,16 @@ async def list_entries(
         return [], total_count
 
     entries = [EntryDB(**row) for row in raw_entries]
-    entry_ids = [str(e.id) for e in entries]
+    entry_ids_list = [str(e.id) for e in entries]
 
-    # Fetch junction rows for these entries
-    et_resp = client.table("entry_tags").select("*").in_("entry_id", entry_ids).execute()
+    et_resp = client.table("entry_tags").select("*").in_("entry_id", entry_ids_list).execute()
     et_rows = [EntryTagDB(**row) for row in (et_resp.data or [])]
     if not et_rows:
-        return [
-            EntryWithTags(id=e.id, content=e.content, created_at=e.created_at, tags=[])
-            for e in entries
-        ], total_count
+        return _entries_with_tags(entries, [], {}), total_count
 
     tag_ids = sorted({str(r.tag_id) for r in et_rows})
     tags_resp = client.table("tags").select("*").in_("id", tag_ids).execute()
-    tag_rows = tags_resp.data or []
-    tags_by_id = {str(row["id"]): row["name"] for row in tag_rows}
+    tags_by_id = {str(row["id"]): row["name"] for row in (tags_resp.data or [])}
 
-    tags_for_entry: dict[str, list[str]] = {str(e.id): [] for e in entries}
-    for link in et_rows:
-        eid = str(link.entry_id)
-        tid = str(link.tag_id)
-        if eid in tags_for_entry and tid in tags_by_id:
-            tags_for_entry[eid].append(tags_by_id[tid])
-
-    results: list[EntryWithTags] = []
-    for e in entries:
-        eid = str(e.id)
-        results.append(
-            EntryWithTags(
-                id=e.id,
-                content=e.content,
-                created_at=e.created_at,
-                tags=sorted(tags_for_entry.get(eid, [])),
-            )
-        )
-
-    return results, total_count
+    return _entries_with_tags(entries, et_rows, tags_by_id), total_count
 

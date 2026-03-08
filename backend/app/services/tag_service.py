@@ -12,7 +12,7 @@ async def get_or_create_tags(client: Client, tag_names: Iterable[str]) -> list[T
 
     Uses a single query to fetch existing tags and a bulk insert for new ones.
     """
-    names = sorted({name.strip() for name in tag_names if name.strip()})
+    names = sorted({name.strip().lower() for name in tag_names if name.strip()})
     if not names:
         return []
 

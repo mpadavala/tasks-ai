@@ -29,7 +29,7 @@ async def create_entry(body: EntryCreateRequest, client=Depends(get_supabase_cli
 async def get_entries(
     search: str | None = Query(default=None),
     tag: str | None = Query(default=None),
-    sort_by: str = Query(default="created_at", pattern="^(content|created_at)$"),
+    sort_by: str = Query(default="created_at", pattern="^(content|created_at|tags)$"),
     order: str = Query(default="desc", pattern="^(asc|desc)$"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),

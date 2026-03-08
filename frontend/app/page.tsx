@@ -133,6 +133,7 @@ export default function Home() {
       prev.map((e) => (e.id === updated.id ? updated : e)),
     );
     void refreshTagsForFilter();
+    return updated;
   };
 
   const handleDeleteEntry = async (entryId: string) => {

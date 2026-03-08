@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { createEntry, Entry, type Priority } from "@/lib/api";
+import { DatePickerInput } from "./DatePickerInput";
 import { PriorityInput } from "./PriorityInput";
 import { TagInput } from "./TagInput";
 
@@ -17,17 +18,6 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
   const [content, setContent] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const [dueDate, setDueDate] = useState(todayDateString);
-  const dueDateInputRef = useRef<HTMLInputElement>(null);
-  const openDueDatePicker = () => {
-    const el = dueDateInputRef.current;
-    if (!el) return;
-    el.focus();
-    try {
-      if (typeof el.showPicker === "function") el.showPicker();
-    } catch {
-      // showPicker can throw in some contexts; ignore
-    }
-  };
   const [tags, setTags] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,31 +83,14 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
         </label>
         <PriorityInput value={priority} onChange={setPriority} />
       </div>
-      <div
-        className="cursor-pointer space-y-1"
-        onClick={openDueDatePicker}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            openDueDatePicker();
-          }
-        }}
-      >
-        <label className="text-xs font-medium text-slate-400 pointer-events-none">
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-slate-400">
           Due date
         </label>
-        <input
-          ref={dueDateInputRef}
-          type="date"
+        <DatePickerInput
           value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          onClick={(e) => {
-            e.stopPropagation();
-            openDueDatePicker();
-          }}
-          className="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none [color-scheme:dark]"
+          onChange={setDueDate}
+          aria-label="Due date"
         />
       </div>
       <div className="space-y-1">

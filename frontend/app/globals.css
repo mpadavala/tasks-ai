@@ -9,3 +9,36 @@ body {
   @apply bg-slate-950 text-slate-100;
   font-family: var(--font-sans);
 }
+
+/* react-day-picker dark theme (Monday–Sunday week) */
+.rdp-dark .rdp-root {
+  --rdp-accent-color: rgb(14 165 233);
+  --rdp-accent-background-color: rgb(30 58 138 / 0.4);
+  --rdp-today-color: rgb(14 165 233);
+  --rdp-range_start-color: rgb(248 250 252);
+  --rdp-range_end-color: rgb(248 250 252);
+}
+.rdp-dark .rdp-root,
+.rdp-dark .rdp-root * {
+  color: rgb(248 250 252);
+}
+.rdp-dark .rdp-day_button:hover {
+  background-color: rgb(51 65 85);
+}
+.rdp-dark .rdp-day_button:focus-visible {
+  outline: 2px solid rgb(14 165 233);
+  outline-offset: 2px;
+}
+.rdp-dark .rdp-nav_button:hover {
+  background-color: rgb(51 65 85);
+}
+.rdp-dark .rdp-nav_button:focus-visible {
+  outline: 2px solid rgb(14 165 233);
+  outline-offset: 2px;
+}
+.rdp-dark .rdp-caption_label {
+  color: rgb(248 250 252);
+}
+.rdp-dark .rdp-weekday {
+  color: rgb(148 163 184);
+}

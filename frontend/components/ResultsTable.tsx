@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Entry, type Priority, SortBy, SortOrder } from "@/lib/api";
+import { DatePickerInput } from "./DatePickerInput";
 import { TagChip } from "./TagChip";
 import { TagInput } from "./TagInput";
 import { PriorityInput } from "./PriorityInput";
@@ -41,17 +42,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [editPriority, setEditPriority] = useState<Priority>("medium");
   const [editDueDate, setEditDueDate] = useState("");
   const [editTags, setEditTags] = useState<string[]>([]);
-  const editDueDateInputRef = useRef<HTMLInputElement>(null);
-  const openEditDueDatePicker = () => {
-    const el = editDueDateInputRef.current;
-    if (!el) return;
-    el.focus();
-    try {
-      if (typeof el.showPicker === "function") el.showPicker();
-    } catch {
-      // showPicker can throw in some contexts; ignore
-    }
-  };
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -193,30 +183,15 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 <PriorityInput value={editPriority} onChange={setEditPriority} />
               </div>
             </div>
-            <div
-              className="cursor-pointer"
-              onClick={openEditDueDatePicker}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openEditDueDatePicker();
-                }
-              }}
-            >
-              <label className="text-xs font-medium text-slate-400 pointer-events-none">Due date</label>
-              <input
-                ref={editDueDateInputRef}
-                type="date"
-                value={editDueDate}
-                onChange={(e) => setEditDueDate(e.target.value)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openEditDueDatePicker();
-                }}
-                className="mt-1 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none [color-scheme:dark]"
-              />
+            <div>
+              <label className="text-xs font-medium text-slate-400">Due date</label>
+              <div className="mt-1">
+                <DatePickerInput
+                  value={editDueDate}
+                  onChange={setEditDueDate}
+                  aria-label="Due date"
+                />
+              </div>
             </div>
             <div>
               <label className="text-xs font-medium text-slate-400">Tags</label>

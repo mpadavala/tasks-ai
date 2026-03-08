@@ -1,4 +1,4 @@
-export type SortBy = "content" | "created_at" | "tags";
+export type SortBy = "content" | "created_at" | "tags" | "priority";
 export type SortOrder = "asc" | "desc";
 
 export type Priority = "high" | "medium" | "low";

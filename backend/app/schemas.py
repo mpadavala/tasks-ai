@@ -22,7 +22,7 @@ class EntryResponse(BaseModel):
     tags: list[str] = Field(default_factory=list)
 
 
-SortBy = Literal["content", "created_at", "tags"]
+SortBy = Literal["content", "created_at", "tags", "priority"]
 SortOrder = Literal["asc", "desc"]
 
 

@@ -288,7 +288,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               >
                 Content {sortBy === "content" && (order === "asc" ? "↑" : "↓")}
               </th>
-              <th className="px-2 py-2">Priority</th>
+              <th
+                className="px-2 py-2 cursor-pointer select-none"
+                onClick={() => toggleSort("priority")}
+              >
+                Priority{" "}
+                {sortBy === "priority" && (order === "asc" ? "↑" : "↓")}
+              </th>
               <th
                 className="px-2 py-2 cursor-pointer select-none"
                 onClick={() => toggleSort("tags")}

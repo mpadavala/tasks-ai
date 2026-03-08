@@ -1,0 +1,75 @@
+"use client";
+
+import React, { useState } from "react";
+import { createEntry, Entry } from "@/lib/api";
+import { TagInput } from "./TagInput";
+
+interface EntryFormProps {
+  onCreated: (entry: Entry) => void;
+}
+
+export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
+  const [content, setContent] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit: React.FormEventHandler = async (e) => {
+    e.preventDefault();
+    if (!content.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const entry = await createEntry({ content: content.trim(), tags });
+      onCreated(entry);
+      setContent("");
+      setTags([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create entry");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-md"
+      suppressHydrationWarning
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">
+          New Entry
+        </h2>
+        {error && (
+          <p className="text-xs text-red-400" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+      <textarea
+        className="min-h-[96px] w-full resize-y rounded-md border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-50 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
+        placeholder="Write your market note, idea, or observation..."
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        suppressHydrationWarning
+      />
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-slate-400">
+          Tags
+        </label>
+        <TagInput value={tags} onChange={setTags} />
+      </div>
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={submitting || !content.trim()}
+          className="inline-flex items-center rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-600"
+        >
+          {submitting ? "Saving..." : "Save Entry"}
+        </button>
+      </div>
+    </form>
+  );
+}
+

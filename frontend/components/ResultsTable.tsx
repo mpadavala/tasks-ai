@@ -215,7 +215,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   e.stopPropagation();
                   openEditDueDatePicker();
                 }}
-                className="mt-1 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none"
+                className="mt-1 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none [color-scheme:dark]"
               />
             </div>
             <div>
@@ -332,18 +332,18 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               </th>
               <th
                 className="px-2 py-2 cursor-pointer select-none"
+                onClick={() => toggleSort("tags")}
+              >
+                Tags {sortBy === "tags" && (order === "asc" ? "↑" : "↓")}
+              </th>
+              <th
+                className="px-2 py-2 cursor-pointer select-none"
                 onClick={() => toggleSort("priority")}
               >
                 Priority{" "}
                 {sortBy === "priority" && (order === "asc" ? "↑" : "↓")}
               </th>
               <th className="px-2 py-2">Due date</th>
-              <th
-                className="px-2 py-2 cursor-pointer select-none"
-                onClick={() => toggleSort("tags")}
-              >
-                Tags {sortBy === "tags" && (order === "asc" ? "↑" : "↓")}
-              </th>
               <th
                 className="px-2 py-2 cursor-pointer select-none"
                 onClick={() => toggleSort("created_at")}
@@ -376,12 +376,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     <td className="max-w-xl px-2 py-2 text-sm text-slate-100">
                       {entry.content}
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-xs capitalize text-slate-300">
-                      {entry.priority ?? "medium"}
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-400">
-                      {entry.due_date ? new Date(entry.due_date + "T12:00:00").toLocaleDateString() : "—"}
-                    </td>
                     <td className="px-2 py-2">
                       <div className="flex flex-wrap items-center gap-1.5">
                         {entry.tags.length === 0 ? (
@@ -394,6 +388,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           ))
                         )}
                       </div>
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2 text-xs capitalize text-slate-300">
+                      {entry.priority ?? "medium"}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-400">
+                      {entry.due_date ? new Date(entry.due_date + "T12:00:00").toLocaleDateString() : "—"}
                     </td>
                     <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-400">
                       {new Date(entry.created_at).toLocaleString()}

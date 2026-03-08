@@ -117,7 +117,7 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
             e.stopPropagation();
             openDueDatePicker();
           }}
-          className="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none"
+          className="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none [color-scheme:dark]"
         />
       </div>
       <div className="space-y-1">

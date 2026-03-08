@@ -49,6 +49,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<SortBy>("created_at");
   const [order, setOrder] = useState<SortOrder>("desc");
 
+  const [panelTab, setPanelTab] = useState<"new" | "search">("new");
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,14 +170,54 @@ export default function Home() {
       </header>
 
       <section className="space-y-4">
-        <EntryForm onCreated={handleCreated} />
+        <div className="flex gap-1 border-b border-slate-800 pb-2">
+          <button
+            type="button"
+            onClick={() => setPanelTab("new")}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+              panelTab === "new"
+                ? "bg-sky-600 text-white"
+                : "bg-slate-800/60 text-slate-300 hover:bg-slate-700"
+            }`}
+          >
+            New Entry
+          </button>
+          <button
+            type="button"
+            onClick={() => setPanelTab("search")}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+              panelTab === "search"
+                ? "bg-sky-600 text-white"
+                : "bg-slate-800/60 text-slate-300 hover:bg-slate-700"
+            }`}
+          >
+            Search &amp; Filter
+          </button>
+        </div>
+        {panelTab === "new" ? (
+          <EntryForm onCreated={handleCreated} />
+        ) : (
+          <SearchBar
+            search={search}
+            onSearchChange={setSearch}
+            tagFilter={tagFilter}
+            onTagFilterChange={setTagFilter}
+            sortBy={sortBy}
+            order={order}
+            onSortByChange={setSortBy}
+            onOrderChange={setOrder}
+            tagsForFilter={availableTags}
+            onSubmitSearch={handleSubmitSearch}
+            onFetchAll={handleFetchAll}
+          />
+        )}
         <div className="flex flex-wrap gap-1 border-b border-slate-800 pb-2">
           {(
             [
+              { id: "all" as TabId, label: "All" },
               { id: "today" as TabId, label: "Today" },
               { id: "week" as TabId, label: "This Week" },
               { id: "month" as TabId, label: "This Month" },
-              { id: "all" as TabId, label: "All" },
               { id: "completed" as TabId, label: "Completed" },
             ] as const
           ).map(({ id, label }) => (
@@ -194,19 +235,6 @@ export default function Home() {
             </button>
           ))}
         </div>
-        <SearchBar
-            search={search}
-            onSearchChange={setSearch}
-            tagFilter={tagFilter}
-            onTagFilterChange={setTagFilter}
-            sortBy={sortBy}
-            order={order}
-            onSortByChange={setSortBy}
-            onOrderChange={setOrder}
-            tagsForFilter={availableTags}
-            onSubmitSearch={handleSubmitSearch}
-            onFetchAll={handleFetchAll}
-          />
       </section>
 
       <ResultsTable

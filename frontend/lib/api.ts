@@ -107,6 +107,19 @@ export async function deleteEntry(entryId: string): Promise<void> {
   }
 }
 
+export async function restoreEntry(entryId: string): Promise<Entry> {
+  const res = await fetch(`${API_URL}/entries/${entryId}/restore`, {
+    method: "POST",
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? "Failed to restore entry");
+  }
+
+  return res.json();
+}
+
 export async function updateEntry(
   entryId: string,
   payload: { content: string; priority: Priority; tags: string[]; due_date?: string | null }

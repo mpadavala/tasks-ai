@@ -11,7 +11,7 @@ from ..schemas import (
     EntryTagsUpdateRequest,
     EntryUpdateRequest,
 )
-from ..services.entry_service import create_entry_with_tags, list_entries, soft_delete_entry, update_entry, update_entry_tags
+from ..services.entry_service import create_entry_with_tags, list_entries, restore_entry, soft_delete_entry, update_entry, update_entry_tags
 
 
 router = APIRouter(prefix="/entries", tags=["entries"])
@@ -70,6 +70,21 @@ async def delete_entry_endpoint(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=f"Failed to delete entry: {exc}") from exc
+
+
+@router.post("/{entry_id}/restore", response_model=EntryResponse)
+async def restore_entry_endpoint(
+    entry_id: UUID,
+    client=Depends(get_supabase_client),
+) -> EntryResponse:
+    """Restore a completed entry so it appears in active tasks again."""
+    try:
+        entry = await restore_entry(client, entry_id)
+        return EntryResponse(**entry.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        raise HTTPException(status_code=500, detail=f"Failed to restore entry: {exc}") from exc
 
 
 @router.put("/{entry_id}", response_model=EntryResponse)

@@ -19,6 +19,7 @@ interface ResultsTableProps {
   onSortChange: (sortBy: SortBy, order: SortOrder) => void;
   onUpdateEntry: (entryId: string, payload: { content: string; priority: Priority; tags: string[]; due_date?: string | null }) => Promise<Entry>;
   onDeleteEntry: (entryId: string) => Promise<void>;
+  onRestoreEntry?: (entryId: string) => Promise<void>;
   loading: boolean;
   isCompletedTab?: boolean;
 }
@@ -34,6 +35,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onSortChange,
   onUpdateEntry,
   onDeleteEntry,
+  onRestoreEntry,
   loading,
   isCompletedTab = false,
 }) => {
@@ -44,6 +46,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [editTags, setEditTags] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -222,9 +225,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       document.body
     );
 
-  const deleteTitle = entryToDelete?.content
-    ? `Delete "${entryToDelete.content.length > 60 ? `${entryToDelete.content.slice(0, 60)}…` : entryToDelete.content}"?`
-    : "Delete task?";
+  const completeTitle = entryToDelete?.content
+    ? `Complete "${entryToDelete.content.length > 60 ? `${entryToDelete.content.slice(0, 60)}…` : entryToDelete.content}"?`
+    : "Complete task?";
 
   const deleteModal =
     mounted &&
@@ -249,9 +252,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             id="delete-dialog-title"
             className="text-sm font-semibold text-slate-100"
           >
-            {deleteTitle}
+            {completeTitle}
           </h3>
-          <p className="mt-2 text-xs text-slate-400">This cannot be undone.</p>
+          <p className="mt-2 text-xs text-slate-400">This will move the task to Completed.</p>
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
@@ -263,9 +266,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             <button
               type="button"
               onClick={() => void confirmDelete()}
-              className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
+              className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-500"
             >
-              Delete
+              Complete
             </button>
           </div>
         </div>
@@ -357,7 +360,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   <tr
                     key={entry.id}
                     onDoubleClick={() => openEditModal(entry)}
-                    className={`cursor-pointer border-b border-slate-800/70 align-top last:border-0 hover:bg-slate-800/30 ${isDeleting ? "bg-red-950/50 ring-2 ring-inset ring-red-500/80" : ""}`}
+                    className={`cursor-pointer border-b border-slate-800/70 align-top last:border-0 hover:bg-slate-800/30 ${isDeleting ? "bg-green-950/50 ring-2 ring-inset ring-green-500/80" : ""}`}
                   >
                     <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-200" : "text-slate-100"}`}>
                       {entry.content}
@@ -402,9 +405,32 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           }}
                           onDoubleClick={(e) => e.stopPropagation()}
                           disabled={deletingId === entry.id}
-                          className="rounded-md border border-red-800/80 px-2 py-1 text-[10px] font-medium text-red-300 hover:bg-red-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-md border border-green-800/80 px-2 py-1 text-[10px] font-medium text-green-300 hover:bg-green-900/40 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {deletingId === entry.id ? "Deleting..." : "Delete"}
+                          {deletingId === entry.id ? "Completing..." : "Complete"}
+                        </button>
+                      )}
+                      {isCompletedTab && onRestoreEntry && (
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setRestoringId(entry.id);
+                            setError(null);
+                            try {
+                              await onRestoreEntry(entry.id);
+                            } catch (err) {
+                              setError(err instanceof Error ? err.message : "Failed to restore task");
+                            } finally {
+                              setRestoringId(null);
+                            }
+                          }}
+                          onDoubleClick={(e) => e.stopPropagation()}
+                          disabled={restoringId === entry.id}
+                          className="rounded-md border border-sky-700/80 px-2 py-1 text-[10px] font-medium text-sky-300 hover:bg-sky-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {restoringId === entry.id ? "Restoring..." : "Restore"}
                         </button>
                       )}
                     </td>

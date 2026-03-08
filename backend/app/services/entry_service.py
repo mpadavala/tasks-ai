@@ -52,6 +52,26 @@ async def soft_delete_entry(client: Client, entry_id: UUID) -> None:
         raise ValueError("Entry not found")
 
 
+async def restore_entry(client: Client, entry_id: UUID) -> EntryWithTags:
+    """Restore a completed entry (clear deleted_at) so it appears in active tasks again."""
+    entry_resp = client.table("entries").select("*").eq("id", str(entry_id)).single().execute()
+    if not entry_resp.data:
+        raise ValueError("Entry not found")
+    resp = client.table("entries").update({"deleted_at": None}).eq("id", str(entry_id)).execute()
+    if not resp.data or len(resp.data) == 0:
+        raise ValueError("Entry not found")
+    entry = EntryDB(**resp.data[0])
+    entry_ids_list = [str(entry.id)]
+    et_resp = client.table("entry_tags").select("*").in_("entry_id", entry_ids_list).execute()
+    et_rows = [EntryTagDB(**row) for row in (et_resp.data or [])]
+    tag_ids = sorted({str(r.tag_id) for r in et_rows})
+    tags_by_id: dict[str, str] = {}
+    if tag_ids:
+        tags_resp = client.table("tags").select("*").in_("id", tag_ids).execute()
+        tags_by_id = {str(row["id"]): row["name"] for row in (tags_resp.data or [])}
+    return _entries_with_tags([entry], et_rows, tags_by_id)[0]
+
+
 async def delete_entry(client: Client, entry_id: UUID) -> None:
     """Hard delete an entry by id. Prefer soft_delete_entry for user-facing delete."""
     resp = client.table("entries").delete().eq("id", str(entry_id)).execute()

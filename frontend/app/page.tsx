@@ -12,6 +12,7 @@ import {
   deleteEntry,
   fetchEntries,
   fetchTags,
+  restoreEntry,
   updateEntry,
 } from "@/lib/api";
 import { EntryForm } from "@/components/EntryForm";
@@ -151,6 +152,13 @@ export default function Home() {
     void refreshTagsForFilter();
   };
 
+  const handleRestoreEntry = async (entryId: string) => {
+    await restoreEntry(entryId);
+    setEntries((prev) => prev.filter((e) => e.id !== entryId));
+    setTotal((prev) => Math.max(0, prev - 1));
+    void refreshTagsForFilter();
+  };
+
   const handleSubmitSearch = () => {
     void loadEntries({ page: 0 });
   };
@@ -263,6 +271,7 @@ export default function Home() {
         onSortChange={handleSortChange}
         onUpdateEntry={handleUpdateEntry}
         onDeleteEntry={handleDeleteEntry}
+        onRestoreEntry={handleRestoreEntry}
         loading={loading}
         isCompletedTab={activeTab === "completed"}
       />

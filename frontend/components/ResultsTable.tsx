@@ -42,6 +42,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [editDueDate, setEditDueDate] = useState("");
   const [editTags, setEditTags] = useState<string[]>([]);
   const editDueDateInputRef = useRef<HTMLInputElement>(null);
+  const openEditDueDatePicker = () => {
+    const el = editDueDateInputRef.current;
+    if (!el) return;
+    el.focus();
+    try {
+      if (typeof el.showPicker === "function") el.showPicker();
+    } catch {
+      // showPicker can throw in some contexts; ignore
+    }
+  };
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -185,13 +195,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             </div>
             <div
               className="cursor-pointer"
-              onClick={() => editDueDateInputRef.current?.showPicker?.()}
+              onClick={openEditDueDatePicker}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  editDueDateInputRef.current?.showPicker?.();
+                  openEditDueDatePicker();
                 }
               }}
             >
@@ -201,7 +211,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 type="date"
                 value={editDueDate}
                 onChange={(e) => setEditDueDate(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEditDueDatePicker();
+                }}
                 className="mt-1 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none"
               />
             </div>

@@ -18,6 +18,16 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
   const [priority, setPriority] = useState<Priority>("medium");
   const [dueDate, setDueDate] = useState(todayDateString);
   const dueDateInputRef = useRef<HTMLInputElement>(null);
+  const openDueDatePicker = () => {
+    const el = dueDateInputRef.current;
+    if (!el) return;
+    el.focus();
+    try {
+      if (typeof el.showPicker === "function") el.showPicker();
+    } catch {
+      // showPicker can throw in some contexts; ignore
+    }
+  };
   const [tags, setTags] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,13 +95,13 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
       </div>
       <div
         className="cursor-pointer space-y-1"
-        onClick={() => dueDateInputRef.current?.showPicker?.()}
+        onClick={openDueDatePicker}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            dueDateInputRef.current?.showPicker?.();
+            openDueDatePicker();
           }
         }}
       >
@@ -103,7 +113,10 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            openDueDatePicker();
+          }}
           className="rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 focus:border-sky-500 focus:outline-none"
         />
       </div>

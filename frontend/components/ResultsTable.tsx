@@ -343,7 +343,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 Priority{" "}
                 {sortBy === "priority" && (order === "asc" ? "↑" : "↓")}
               </th>
-              <th className="px-2 py-2">Due date</th>
+              <th
+                className="px-2 py-2 cursor-pointer select-none"
+                onClick={() => toggleSort("due_date")}
+              >
+                Due date{" "}
+                {sortBy === "due_date" && (order === "asc" ? "↑" : "↓")}
+              </th>
               <th
                 className="px-2 py-2 cursor-pointer select-none"
                 onClick={() => toggleSort("created_at")}

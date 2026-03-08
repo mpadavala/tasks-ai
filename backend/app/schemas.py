@@ -25,7 +25,7 @@ class EntryResponse(BaseModel):
     tags: list[str] = Field(default_factory=list)
 
 
-SortBy = Literal["content", "created_at", "tags", "priority"]
+SortBy = Literal["content", "created_at", "tags", "priority", "due_date"]
 SortOrder = Literal["asc", "desc"]
 
 

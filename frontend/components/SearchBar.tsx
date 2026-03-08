@@ -23,6 +23,7 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: "content", label: "Content" },
   { value: "tags", label: "Tags" },
   { value: "priority", label: "Priority" },
+  { value: "due_date", label: "Due Date" },
 ];
 
 const ORDER_OPTIONS: { value: SortOrder; label: string }[] = [

@@ -357,38 +357,38 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   <tr
                     key={entry.id}
                     onDoubleClick={() => openEditModal(entry)}
-                    className={`cursor-pointer border-b border-slate-800/70 align-top last:border-0 hover:bg-slate-800/30 ${isDeleting ? "bg-red-950/50 ring-2 ring-inset ring-red-500/80" : isOverdue ? "bg-rose-950/30 hover:bg-rose-950/50" : ""}`}
+                    className={`cursor-pointer border-b border-slate-800/70 align-top last:border-0 hover:bg-slate-800/30 ${isDeleting ? "bg-red-950/50 ring-2 ring-inset ring-red-500/80" : ""}`}
                   >
-                    <td className="max-w-xl px-2 py-2 text-sm text-slate-100">
+                    <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-200" : "text-slate-100"}`}>
                       {entry.content}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className={`px-2 py-2 ${isOverdue ? "text-orange-200" : ""}`}>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {entry.tags.length === 0 ? (
-                          <span className="text-xs text-slate-500">
+                          <span className={`text-xs ${isOverdue ? "text-orange-200" : "text-slate-500"}`}>
                             No tags
                           </span>
                         ) : (
                           entry.tags.map((t) => (
-                            <TagChip key={t} label={t} />
+                            <TagChip key={t} label={t} className={isOverdue ? "!text-orange-200" : undefined} />
                           ))
                         )}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-xs capitalize text-slate-300">
+                    <td className={`whitespace-nowrap px-2 py-2 text-xs capitalize ${isOverdue ? "text-orange-200" : "text-slate-300"}`}>
                       {entry.priority ?? "medium"}
                     </td>
                     <td
-                      className={`whitespace-nowrap px-2 py-2 text-xs ${isOverdue ? "text-rose-300 font-medium" : "text-slate-400"}`}
+                      className={`whitespace-nowrap px-2 py-2 text-xs ${isOverdue ? "text-orange-200 font-medium" : "text-slate-400"}`}
                     >
                       {entry.due_date ? new Date(entry.due_date + "T12:00:00").toLocaleDateString() : "—"}
                       {isOverdue && entry.due_date ? (
-                        <span className="ml-1 text-[10px] text-rose-400/90">
+                        <span className="ml-1 text-[10px] text-orange-300/90">
                           (overdue)
                         </span>
                       ) : null}
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-xs text-slate-400">
+                    <td className={`whitespace-nowrap px-2 py-2 text-xs ${isOverdue ? "text-orange-200" : "text-slate-400"}`}>
                       {new Date(entry.created_at).toLocaleString()}
                     </td>
                     <td className="px-2 py-2">

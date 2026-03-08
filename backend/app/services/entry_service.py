@@ -29,6 +29,14 @@ async def create_entry_with_tags(client: Client, payload: EntryCreateRequest) ->
     return EntryWithTags(id=entry.id, content=entry.content, created_at=entry.created_at, tags=[t.name for t in tags])
 
 
+async def delete_entry(client: Client, entry_id: UUID) -> None:
+    """Delete an entry by id. entry_tags are removed by DB cascade."""
+    resp = client.table("entries").delete().eq("id", str(entry_id)).execute()
+    # Supabase delete returns the deleted rows; if nothing deleted, entry didn't exist
+    if not resp.data or len(resp.data) == 0:
+        raise ValueError("Entry not found")
+
+
 async def update_entry_tags(client: Client, entry_id: UUID, tags: Iterable[str]) -> EntryWithTags:
     # Ensure entry exists and fetch it
     entry_resp = client.table("entries").select("*").eq("id", str(entry_id)).single().execute()

@@ -10,7 +10,7 @@ from ..schemas import (
     EntryResponse,
     EntryTagsUpdateRequest,
 )
-from ..services.entry_service import create_entry_with_tags, list_entries, update_entry_tags
+from ..services.entry_service import create_entry_with_tags, delete_entry, list_entries, update_entry_tags
 
 
 router = APIRouter(prefix="/entries", tags=["entries"])
@@ -51,6 +51,19 @@ async def get_entries(
         )
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=f"Failed to fetch entries: {exc}") from exc
+
+
+@router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_entry_endpoint(
+    entry_id: UUID,
+    client=Depends(get_supabase_client),
+) -> None:
+    try:
+        await delete_entry(client, entry_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        raise HTTPException(status_code=500, detail=f"Failed to delete entry: {exc}") from exc
 
 
 @router.put("/{entry_id}/tags", response_model=EntryResponse)

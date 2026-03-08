@@ -1,13 +1,20 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: add .dark on html for dark theme */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
     "SF Pro Display", "Segoe UI", sans-serif;
 }
 
 body {
-  @apply bg-slate-950 text-slate-100;
   font-family: var(--font-sans);
+  @apply min-h-screen antialiased bg-slate-200 text-slate-900;
+}
+
+.dark body {
+  @apply bg-slate-950 text-slate-100;
 }
 
 /* react-day-picker dark theme (Monday–Sunday week) */
@@ -41,4 +48,35 @@ body {
 }
 .rdp-dark .rdp-weekday {
   color: rgb(148 163 184);
+}
+
+/* Light theme calendar (when html does not have .dark) */
+html:not(.dark) .rdp-dark .rdp-root {
+  --rdp-accent-color: rgb(14 165 233);
+  --rdp-accent-background-color: rgb(224 242 254);
+  --rdp-today-color: rgb(14 165 233);
+}
+html:not(.dark) .rdp-dark .rdp-root,
+html:not(.dark) .rdp-dark .rdp-root * {
+  color: rgb(15 23 42) !important;
+}
+html:not(.dark) .rdp-dark .rdp-day_button {
+  color: rgb(15 23 42) !important;
+}
+html:not(.dark) .rdp-dark .rdp-day_button:hover {
+  background-color: rgb(226 232 240);
+  color: rgb(15 23 42) !important;
+}
+html:not(.dark) .rdp-dark .rdp-caption_label {
+  color: rgb(15 23 42) !important;
+}
+html:not(.dark) .rdp-dark .rdp-weekday {
+  color: rgb(100 116 139) !important;
+}
+html:not(.dark) .rdp-dark .rdp-nav_button {
+  color: rgb(15 23 42) !important;
+}
+html:not(.dark) .rdp-dark .rdp-nav_button:hover {
+  background-color: rgb(226 232 240);
+  color: rgb(15 23 42) !important;
 }

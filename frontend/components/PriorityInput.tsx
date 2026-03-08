@@ -71,7 +71,7 @@ export const PriorityInput: React.FC<PriorityInputProps> = ({ value, onChange })
       ? createPortal(
           <div
             ref={dropdownRef}
-            className="fixed z-[100] max-h-48 overflow-auto rounded-md border border-slate-700 bg-slate-900 shadow-lg"
+            className="fixed z-[100] max-h-48 overflow-auto rounded-md border border-slate-300 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
             style={{
               top: dropdownRect.top + 4,
               left: dropdownRect.left,
@@ -86,7 +86,7 @@ export const PriorityInput: React.FC<PriorityInputProps> = ({ value, onChange })
                   onChange(p.value);
                   setOpen(false);
                 }}
-                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-slate-100 hover:bg-slate-800"
+                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-slate-900 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
               >
                 {p.label}
               </button>
@@ -108,12 +108,12 @@ export const PriorityInput: React.FC<PriorityInputProps> = ({ value, onChange })
             setOpen((prev) => !prev);
           }
         }}
-        className={`flex min-w-[80px] cursor-pointer items-center gap-2 rounded-md border bg-slate-900 px-2 py-1 text-sm text-slate-50 outline-none ${
-          open ? "border-sky-500" : "border-slate-700 focus:border-sky-500"
+        className={`flex min-w-[80px] cursor-pointer items-center gap-2 rounded-md border bg-white px-2 py-1 text-sm text-slate-900 outline-none dark:bg-slate-900 dark:text-slate-50 ${
+          open ? "border-sky-500" : "border-slate-300 focus:border-sky-500 dark:border-slate-700"
         }`}
       >
         <span className="flex-1">{currentLabel}</span>
-        <span className="text-xs text-slate-400" aria-hidden>
+        <span className="text-xs text-slate-500 dark:text-slate-400" aria-hidden>
           ▼
         </span>
       </div>

@@ -135,7 +135,7 @@ export const TagInput: React.FC<TagInputProps> = ({
       ? createPortal(
           <div
             ref={dropdownRef}
-            className="fixed z-[100] max-h-48 overflow-auto rounded-md border border-slate-700 bg-slate-900 shadow-lg"
+            className="fixed z-[100] max-h-48 overflow-auto rounded-md border border-slate-300 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
             style={{
               top: dropdownRect.top + 4,
               left: dropdownRect.left,
@@ -147,10 +147,10 @@ export const TagInput: React.FC<TagInputProps> = ({
                 key={s.id}
                 type="button"
                 onClick={() => addTag(s.name)}
-                className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-slate-100 hover:bg-slate-800"
+                className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-slate-900 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
               >
                 <span>{s.name}</span>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
                   {s.usage_count} used
                 </span>
               </button>
@@ -162,12 +162,12 @@ export const TagInput: React.FC<TagInputProps> = ({
 
   return (
     <div ref={containerRef} className="relative">
-      <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 focus-within:border-sky-500">
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 focus-within:border-sky-500 dark:border-slate-700 dark:bg-slate-900">
         {value.map((tag) => (
           <TagChip key={tag} label={tag} onRemove={() => removeTag(tag)} />
         ))}
         <input
-          className="flex-1 min-w-[80px] bg-transparent px-1 py-1 text-sm text-slate-50 outline-none placeholder:text-slate-500"
+          className="flex-1 min-w-[80px] bg-transparent px-1 py-1 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-50 dark:placeholder:text-slate-500"
           placeholder={placeholder}
           value={input}
           autoFocus={autoFocus}

@@ -76,14 +76,14 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
         aria-label={ariaLabel ?? "Choose due date"}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={`min-w-[8rem] rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-left text-xs text-slate-50 focus:border-sky-500 focus:outline-none ${className}`}
+        className={`min-w-[8rem] rounded-md border border-slate-300 bg-white px-2 py-1.5 text-left text-xs text-slate-900 focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-50 ${className}`}
       >
         {value || "Select date"}
       </button>
       {open && (
         <div
           ref={dropdownRef}
-          className="rdp-dark absolute left-0 z-[100] rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-xl"
+          className="rdp-dark absolute left-0 z-[100] rounded-lg border border-slate-300 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900"
           style={{ top: dropdownTop }}
         >
           <DayPicker

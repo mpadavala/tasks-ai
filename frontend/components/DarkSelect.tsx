@@ -78,7 +78,7 @@ export const DarkSelect: React.FC<DarkSelectProps> = ({
       ? createPortal(
           <div
             ref={dropdownRef}
-            className="fixed z-[100] max-h-48 overflow-auto rounded-md border border-slate-700 bg-slate-900 shadow-lg"
+            className="fixed z-[100] max-h-48 overflow-auto rounded-md border border-slate-300 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
             style={{
               top: dropdownRect.top + 4,
               left: dropdownRect.left,
@@ -93,8 +93,8 @@ export const DarkSelect: React.FC<DarkSelectProps> = ({
                   onChange(opt.value);
                   setOpen(false);
                 }}
-                className={`flex w-full items-center px-3 py-1.5 text-left text-xs text-slate-100 hover:bg-slate-800 ${
-                  opt.value === value ? "bg-slate-800" : ""
+                className={`flex w-full items-center px-3 py-1.5 text-left text-xs text-slate-900 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800 ${
+                  opt.value === value ? "bg-slate-200 dark:bg-slate-800" : ""
                 }`}
               >
                 {opt.label}
@@ -120,14 +120,14 @@ export const DarkSelect: React.FC<DarkSelectProps> = ({
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className={`flex min-w-[6rem] cursor-pointer items-center justify-between gap-2 rounded-md border bg-slate-950/60 px-2 py-1.5 text-xs text-slate-50 outline-none ${
-          open ? "border-sky-500" : "border-slate-700 focus:border-sky-500"
+        className={`flex min-w-[6rem] cursor-pointer items-center justify-between gap-2 rounded-md border bg-white px-2 py-1.5 text-xs text-slate-900 outline-none dark:bg-slate-950/60 dark:text-slate-50 ${
+          open ? "border-sky-500" : "border-slate-300 focus:border-sky-500 dark:border-slate-700"
         }`}
       >
         <span className="truncate">
           {currentLabel ?? placeholder}
         </span>
-        <span className="text-slate-400" aria-hidden>
+        <span className="text-slate-500 dark:text-slate-400" aria-hidden>
           ▼
         </span>
       </div>

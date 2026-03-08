@@ -18,6 +18,7 @@ import {
 import { EntryForm } from "@/components/EntryForm";
 import { SearchBar } from "@/components/SearchBar";
 import { ResultsTable } from "@/components/ResultsTable";
+import { useTheme } from "@/components/ThemeProvider";
 
 const PAGE_SIZE = 20;
 
@@ -61,6 +62,7 @@ export default function Home() {
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { theme, toggleTheme } = useTheme();
 
   const loadEntries = async (
     overrides?: Partial<{ page: number; sortBy: SortBy; order: SortOrder; tab: TabId }>
@@ -171,29 +173,39 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="space-y-1">
-        <h1 className="text-lg font-semibold text-slate-50">
-          TasksAI
-        </h1>
-        <p className="text-xs text-slate-400">
-          Capture tagged tasks and explore them with powerful filtering.
-        </p>
-        {error && (
-          <p className="text-xs text-red-400" role="alert">
-            {error}
+      <header className="flex flex-wrap items-start justify-between gap-2">
+        <div className="space-y-1">
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+            TasksAI
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Capture tagged tasks and explore them with powerful filtering.
           </p>
-        )}
+          {error && (
+            <p className="text-xs text-red-400" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+        >
+          {theme === "dark" ? "Light" : "Dark"}
+        </button>
       </header>
 
       <section className="space-y-4">
-        <div className="flex gap-1 border-b border-slate-800 pb-2">
+        <div className="flex gap-1 border-b border-slate-300 pb-2 dark:border-slate-800">
           <button
             type="button"
             onClick={() => setPanelTab("new")}
             className={`rounded-md px-3 py-1.5 text-xs font-medium ${
               panelTab === "new"
                 ? "bg-sky-600 text-white"
-                : "bg-slate-800/60 text-slate-300 hover:bg-slate-700"
+                : "bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700"
             }`}
           >
             New Task
@@ -204,7 +216,7 @@ export default function Home() {
             className={`rounded-md px-3 py-1.5 text-xs font-medium ${
               panelTab === "search"
                 ? "bg-sky-600 text-white"
-                : "bg-slate-800/60 text-slate-300 hover:bg-slate-700"
+                : "bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700"
             }`}
           >
             Search &amp; Filter
@@ -227,7 +239,7 @@ export default function Home() {
             onFetchAll={handleFetchAll}
           />
         )}
-        <div className="flex flex-wrap gap-1 border-b border-slate-800 pb-2">
+        <div className="flex flex-wrap gap-1 border-b border-slate-300 pb-2 dark:border-slate-800">
           {(
             [
               { id: "all" as TabId, label: "All" },
@@ -251,7 +263,7 @@ export default function Home() {
               className={`rounded-md px-3 py-1.5 text-xs font-medium ${
                 activeTab === id
                   ? "bg-sky-600 text-white"
-                  : "bg-slate-800/60 text-slate-300 hover:bg-slate-700"
+                  : "bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700"
               }`}
             >
               {label}

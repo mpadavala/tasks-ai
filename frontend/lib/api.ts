@@ -4,7 +4,7 @@ export type SortOrder = "asc" | "desc";
 export type Priority = "high" | "medium" | "low";
 
 export type StatusFilter = "active" | "completed";
-export type DueFilter = "all" | "today" | "week" | "month";
+export type DueFilter = "all" | "today" | "week" | "month" | "overdue";
 
 export interface Entry {
   id: string;

@@ -167,11 +167,14 @@ async def list_entries(
     elif params.status == "completed":
         query = query.not_.is_("deleted_at", "null")
 
-    # Due date filter (active only): today, this week, this month
+    # Due date filter (active only): today (includes overdue), week, month, overdue
     if params.status == "active" and params.due_filter != "all":
         today = _today_utc()
         if params.due_filter == "today":
-            query = query.eq("due_date", today.isoformat())
+            # Today tab: due today or earlier (includes overdue)
+            query = query.lte("due_date", today.isoformat()).not_.is_("due_date", "null")
+        elif params.due_filter == "overdue":
+            query = query.lt("due_date", today.isoformat())
         elif params.due_filter == "week":
             # ISO week: Monday is day 0
             start = today - timedelta(days=today.weekday())
@@ -222,7 +225,9 @@ async def list_entries(
         if params.status == "active" and params.due_filter != "all":
             today = _today_utc()
             if params.due_filter == "today":
-                data_query = data_query.eq("due_date", today.isoformat())
+                data_query = data_query.lte("due_date", today.isoformat()).not_.is_("due_date", "null")
+            elif params.due_filter == "overdue":
+                data_query = data_query.lt("due_date", today.isoformat())
             elif params.due_filter == "week":
                 start = today - timedelta(days=today.weekday())
                 end = start + timedelta(days=6)

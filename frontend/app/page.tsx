@@ -20,13 +20,14 @@ import { ResultsTable } from "@/components/ResultsTable";
 
 const PAGE_SIZE = 20;
 
-export type TabId = "today" | "week" | "month" | "all" | "completed";
+export type TabId = "today" | "week" | "month" | "all" | "overdue" | "completed";
 
 const TAB_STATUS: Record<TabId, StatusFilter> = {
   today: "active",
   week: "active",
   month: "active",
   all: "active",
+  overdue: "active",
   completed: "completed",
 };
 
@@ -35,8 +36,14 @@ const TAB_DUE_FILTER: Record<TabId, DueFilter> = {
   week: "week",
   month: "month",
   all: "all",
+  overdue: "overdue",
   completed: "all",
 };
+
+function getDefaultSortForTab(tab: TabId): { sortBy: SortBy; order: SortOrder } {
+  if (tab === "all") return { sortBy: "created_at", order: "desc" };
+  return { sortBy: "due_date", order: "asc" };
+}
 
 export default function Home() {
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -219,13 +226,20 @@ export default function Home() {
               { id: "today" as TabId, label: "Today" },
               { id: "week" as TabId, label: "This Week" },
               { id: "month" as TabId, label: "This Month" },
+              { id: "overdue" as TabId, label: "Overdue" },
               { id: "completed" as TabId, label: "Completed" },
             ] as const
           ).map(({ id, label }) => (
             <button
               key={id}
               type="button"
-              onClick={() => void loadEntries({ page: 0, tab: id })}
+              onClick={() =>
+                void loadEntries({
+                  page: 0,
+                  tab: id,
+                  ...getDefaultSortForTab(id),
+                })
+              }
               className={`rounded-md px-3 py-1.5 text-xs font-medium ${
                 activeTab === id
                   ? "bg-sky-600 text-white"

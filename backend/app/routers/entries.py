@@ -31,7 +31,7 @@ async def get_entries(
     search: str | None = Query(default=None),
     tag: str | None = Query(default=None),
     status: str = Query(default="active", pattern="^(active|completed)$"),
-    due_filter: str = Query(default="all", pattern="^(all|today|week|month)$"),
+    due_filter: str = Query(default="all", pattern="^(all|today|week|month|overdue)$"),
     sort_by: str = Query(default="created_at", pattern="^(content|created_at|tags|priority|due_date)$"),
     order: str = Query(default="desc", pattern="^(asc|desc)$"),
     limit: int = Query(default=20, ge=1, le=100),

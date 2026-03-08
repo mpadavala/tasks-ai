@@ -30,7 +30,7 @@ SortOrder = Literal["asc", "desc"]
 
 
 StatusFilter = Literal["active", "completed"]
-DueFilter = Literal["all", "today", "week", "month"]
+DueFilter = Literal["all", "today", "week", "month", "overdue"]
 
 
 class EntryQueryParams(BaseModel):

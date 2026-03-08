@@ -100,7 +100,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <button
           type="button"
           onClick={onSubmitSearch}
-          className="inline-flex items-center rounded-md bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-white dark:bg-slate-100 dark:hover:bg-white"
+          className="inline-flex items-center rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white! shadow-sm transition hover:bg-sky-500"
         >
           Search
         </button>

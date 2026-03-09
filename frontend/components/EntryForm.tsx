@@ -104,6 +104,7 @@ export const EntryForm: React.FC<EntryFormProps> = ({ onCreated }) => {
           type="submit"
           disabled={submitting || !content.trim()}
           className="inline-flex items-center rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white! shadow-sm transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-70 disabled:bg-sky-600"
+          suppressHydrationWarning
         >
           {submitting ? "Saving..." : "Save Task"}
         </button>

@@ -243,6 +243,10 @@ async def list_entries(
     elif params.status == "completed":
         query = query.not_.is_("deleted_at", "null")
 
+    # Task status filter (not_started, in_progress, done)
+    if params.task_status is not None:
+        query = query.eq("task_status", params.task_status)
+
     # Parent: top-level only (default) or subtasks of a specific entry
     if params.parent_id is None:
         query = query.is_("parent_id", "null")
@@ -310,6 +314,8 @@ async def list_entries(
             data_query = data_query.is_("parent_id", "null")
         else:
             data_query = data_query.eq("parent_id", str(params.parent_id))
+        if params.task_status is not None:
+            data_query = data_query.eq("task_status", params.task_status)
         if params.status == "active" and params.from_date is not None and params.to_date is not None:
             data_query = data_query.gte("due_date", params.from_date.isoformat()).lte("due_date", params.to_date.isoformat())
         elif params.status == "active" and params.due_filter != "all":

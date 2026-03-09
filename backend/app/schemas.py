@@ -46,6 +46,7 @@ class EntryQueryParams(BaseModel):
     search: str | None = None
     tag: str | None = None
     status: StatusFilter = "active"
+    task_status: TaskStatus | None = None  # optional filter by task status
     due_filter: DueFilter = "all"
     from_date: date | None = None
     to_date: date | None = None

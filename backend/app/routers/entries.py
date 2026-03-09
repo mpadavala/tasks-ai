@@ -41,6 +41,7 @@ async def get_entries(
     search: str | None = Query(default=None),
     tag: str | None = Query(default=None),
     status: str = Query(default="active", pattern="^(active|completed)$"),
+    task_status: str | None = Query(default=None, pattern="^(not_started|in_progress|done)$"),
     due_filter: str = Query(default="all", pattern="^(all|today|week|month|overdue)$"),
     from_date: str | None = Query(default=None, pattern="^\\d{4}-\\d{2}-\\d{2}$"),
     to_date: str | None = Query(default=None, pattern="^\\d{4}-\\d{2}-\\d{2}$"),
@@ -58,6 +59,7 @@ async def get_entries(
         search=search,
         tag=tag,
         status=status,  # type: ignore[arg-type]
+        task_status=task_status,  # type: ignore[arg-type]
         due_filter=due_filter,  # type: ignore[arg-type]
         from_date=from_date_parsed,
         to_date=to_date_parsed,

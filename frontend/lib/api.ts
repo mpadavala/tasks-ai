@@ -89,6 +89,7 @@ export interface FetchEntriesOptions {
   search?: string;
   tag?: string;
   status?: StatusFilter;
+  task_status?: TaskStatus | "";
   due_filter?: DueFilter;
   from_date?: string;
   to_date?: string;

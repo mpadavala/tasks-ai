@@ -57,6 +57,7 @@ export default function Home() {
 
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"" | "not_started" | "in_progress" | "done">("");
   const [sortBy, setSortBy] = useState<SortBy>("created_at");
   const [order, setOrder] = useState<SortOrder>("desc");
 
@@ -80,6 +81,7 @@ export default function Home() {
         search: search || undefined,
         tag: tagFilter || undefined,
         status: TAB_STATUS[effectiveTab],
+        task_status: statusFilter || undefined,
         due_filter: TAB_DUE_FILTER[effectiveTab],
         sort_by: effectiveSortBy,
         order: effectiveOrder,
@@ -121,7 +123,7 @@ export default function Home() {
     }, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, tagFilter]);
+  }, [search, tagFilter, statusFilter]);
 
   const handleCreated = (entry: Entry) => {
     setShowNewTaskModal(false);
@@ -323,7 +325,13 @@ export default function Home() {
           onSearchChange={setSearch}
           tagFilter={tagFilter}
           onTagFilterChange={setTagFilter}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
           tagsForFilter={availableTags}
+          onClearFilters={() => {
+            setStatusFilter("");
+            setTagFilter("");
+          }}
         />
       )}
     </main>

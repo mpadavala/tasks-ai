@@ -42,7 +42,10 @@ interface ResultsTableProps {
   onSearchChange?: (value: string) => void;
   tagFilter?: string;
   onTagFilterChange?: (value: string) => void;
+  statusFilter?: "" | TaskStatus;
+  onStatusFilterChange?: (value: "" | TaskStatus) => void;
   tagsForFilter?: Tag[];
+  onClearFilters?: () => void;
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -64,7 +67,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onSearchChange,
   tagFilter = "",
   onTagFilterChange,
+  statusFilter = "",
+  onStatusFilterChange,
   tagsForFilter = [],
+  onClearFilters,
 }) => {
   const [editModalEntry, setEditModalEntry] = useState<Entry | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -376,7 +382,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
           onSearchChange={onSearchChange}
           tagFilter={tagFilter}
           onTagFilterChange={onTagFilterChange ?? (() => {})}
+          statusFilter={statusFilter}
+          onStatusFilterChange={onStatusFilterChange ?? (() => {})}
           tagsForFilter={tagsForFilter}
+          onClearFilters={onClearFilters}
           embedded
         />
       )}

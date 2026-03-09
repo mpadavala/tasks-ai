@@ -8,6 +8,19 @@ import { TagChip } from "./TagChip";
 import { TagInput } from "./TagInput";
 import { PriorityInput } from "./PriorityInput";
 
+function GripIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="9" cy="6" r="1.5" />
+      <circle cx="15" cy="6" r="1.5" />
+      <circle cx="9" cy="12" r="1.5" />
+      <circle cx="15" cy="12" r="1.5" />
+      <circle cx="9" cy="18" r="1.5" />
+      <circle cx="15" cy="18" r="1.5" />
+    </svg>
+  );
+}
+
 interface ResultsTableProps {
   entries: Entry[];
   total: number;
@@ -63,10 +76,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   useEffect(() => setMounted(true), []);
 
   const handleDragStart = (e: React.DragEvent, entry: Entry) => {
+    e.stopPropagation();
     setDraggedEntry(entry);
-    e.dataTransfer.setData("text/plain", entry.id);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("application/json", JSON.stringify(entry));
+    e.dataTransfer.setData("text/plain", entry.id);
+    // Required for drag to work in some browsers
+    try {
+      e.dataTransfer.setData("application/json", JSON.stringify({ id: entry.id }));
+    } catch {
+      // ignore
+    }
   };
 
   const handleDragEnd = () => {
@@ -77,6 +96,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
   const handleDragOver = (e: React.DragEvent, targetEntryId: string | null, isTopLevel: boolean) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
     if (isTopLevel) {
       setDropTargetId(null);
@@ -88,6 +108,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
+    e.stopPropagation();
     const related = e.relatedTarget as Node | null;
     if (!related || !e.currentTarget.contains(related)) {
       setDropTargetId(null);
@@ -97,6 +118,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
 
   const handleDrop = (e: React.DragEvent, targetParentId: string | null) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!draggedEntry) return;
     if (targetParentId === draggedEntry.id) return;
     const newParentId = targetParentId;
@@ -424,19 +446,27 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 return (
                   <React.Fragment key={entry.id}>
                   <tr
-                    draggable
                     onDoubleClick={() => openEditModal(entry)}
-                    onDragStart={(e) => handleDragStart(e, entry)}
-                    onDragEnd={handleDragEnd}
                     onDragOver={(e) => handleDragOver(e, entry.id, false)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, entry.id)}
-                    className={`cursor-grab active:cursor-grabbing border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
+                    onDragEnd={handleDragEnd}
+                    className={`border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
                       draggedEntry?.id === entry.id ? "opacity-50" : ""
                     } ${dropTargetId === entry.id ? "ring-1 ring-inset ring-sky-500 bg-sky-50/80 dark:bg-sky-900/30" : ""}`}
                   >
                     <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, entry)}
+                          onDragEnd={handleDragEnd}
+                          className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center self-stretch rounded border border-transparent py-1 pr-1 text-slate-400 hover:border-slate-300 hover:bg-slate-200 hover:text-slate-600 active:cursor-grabbing dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+                          title="Drag to move task"
+                          aria-label="Drag to move task"
+                        >
+                          <GripIcon className="h-4 w-4" />
+                        </div>
                         {onFetchSubtasks && (
                           <button
                             type="button"
@@ -533,20 +563,30 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           return (
                             <tr
                               key={sub.id}
-                              draggable
                               onDoubleClick={() => openEditModal(sub)}
-                              onDragStart={(e) => handleDragStart(e, sub)}
-                              onDragEnd={handleDragEnd}
                               onDragOver={(e) => handleDragOver(e, sub.id, false)}
                               onDragLeave={handleDragLeave}
                               onDrop={(e) => handleDrop(e, sub.id)}
-                              className={`cursor-grab active:cursor-grabbing border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
+                              onDragEnd={handleDragEnd}
+                              className={`border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
                                 draggedEntry?.id === sub.id ? "opacity-50" : ""
                               } ${dropTargetId === sub.id ? "ring-1 ring-inset ring-sky-500 bg-sky-50/80 dark:bg-sky-900/30" : ""}`}
                             >
                               <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
-                                <span className="text-slate-500 dark:text-slate-400">↳ </span>
-                                {sub.content}
+                                <div className="flex items-center gap-1">
+                                  <div
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, sub)}
+                                    onDragEnd={handleDragEnd}
+                                    className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center rounded py-0.5 pr-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 active:cursor-grabbing dark:hover:bg-slate-700 dark:hover:text-slate-300"
+                                    title="Drag to move task"
+                                    aria-label="Drag to move task"
+                                  >
+                                    <GripIcon className="h-3 w-3" />
+                                  </div>
+                                  <span className="text-slate-500 dark:text-slate-400">↳ </span>
+                                  {sub.content}
+                                </div>
                               </td>
                               <td className="px-2 py-1.5">
                                 <div className="flex flex-wrap gap-1">

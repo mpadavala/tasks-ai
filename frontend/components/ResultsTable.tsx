@@ -17,8 +17,10 @@ interface ResultsTableProps {
   sortBy: SortBy;
   order: SortOrder;
   onSortChange: (sortBy: SortBy, order: SortOrder) => void;
-  onUpdateEntry: (entryId: string, payload: { content: string; priority: Priority; tags: string[]; due_date?: string | null }) => Promise<Entry>;
+  onUpdateEntry: (entryId: string, payload: { content: string; priority: Priority; tags: string[]; due_date?: string | null; parent_id?: string | null }) => Promise<Entry>;
   onUpdateStatus: (entryId: string, taskStatus: TaskStatus) => Promise<void>;
+  onFetchSubtasks?: (parentId: string) => Promise<Entry[]>;
+  onCreateSubtask?: (parentId: string, data: { content: string; priority?: Priority; tags: string[]; due_date?: string | null }) => Promise<Entry>;
   loading: boolean;
   isCompletedTab?: boolean;
 }
@@ -34,6 +36,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onSortChange,
   onUpdateEntry,
   onUpdateStatus,
+  onFetchSubtasks,
+  onCreateSubtask,
   loading,
   isCompletedTab = false,
 }) => {
@@ -46,7 +50,52 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [subtasksByParentId, setSubtasksByParentId] = useState<Record<string, Entry[]>>({});
+  const [loadingSubtasksFor, setLoadingSubtasksFor] = useState<string | null>(null);
+  const [addingSubtaskForId, setAddingSubtaskForId] = useState<string | null>(null);
+  const [newSubtaskContent, setNewSubtaskContent] = useState("");
+  const [newSubtaskDue, setNewSubtaskDue] = useState("");
+  const [savingSubtaskForId, setSavingSubtaskForId] = useState<string | null>(null);
   useEffect(() => setMounted(true), []);
+
+  const toggleExpand = (entryId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(entryId)) next.delete(entryId);
+      else next.add(entryId);
+      return next;
+    });
+    if (!subtasksByParentId[entryId] && onFetchSubtasks) {
+      setLoadingSubtasksFor(entryId);
+      onFetchSubtasks(entryId)
+        .then((list) => setSubtasksByParentId((prev) => ({ ...prev, [entryId]: list })))
+        .finally(() => setLoadingSubtasksFor(null));
+    }
+  };
+
+  const submitNewSubtask = async (parentId: string) => {
+    const content = newSubtaskContent.trim();
+    if (!content || !onCreateSubtask) return;
+    setSavingSubtaskForId(parentId);
+    setError(null);
+    try {
+      await onCreateSubtask(parentId, {
+        content,
+        tags: [],
+        due_date: newSubtaskDue.trim() || null,
+      });
+      setNewSubtaskContent("");
+      setNewSubtaskDue("");
+      setAddingSubtaskForId(null);
+      const list = onFetchSubtasks ? await onFetchSubtasks(parentId) : [];
+      setSubtasksByParentId((prev) => ({ ...prev, [parentId]: list }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add subtask");
+    } finally {
+      setSavingSubtaskForId(null);
+    }
+  };
 
   const TASK_STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
     { value: "not_started", label: "Not Started" },
@@ -90,6 +139,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         priority: editPriority,
         tags: editTags,
         due_date: editDueDate.trim() || null,
+        parent_id: editModalEntry.parent_id ?? null,
       });
       closeEditModal();
     } catch (err) {
@@ -270,13 +320,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 {sortBy === "created_at" && (order === "asc" ? "↑" : "↓")}
               </th>
               <th className="px-2 py-2 w-28">Status</th>
+              <th className="px-2 py-2 w-32">Move to</th>
             </tr>
           </thead>
           <tbody>
             {entries.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-2 py-8 text-center text-xs text-slate-500 dark:text-slate-500"
                 >
                   {loading ? "Loading..." : "No tasks match your filters."}
@@ -291,13 +342,42 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   entry.due_date < today;
                 const currentStatus = (entry.task_status ?? "not_started") as TaskStatus;
                 return (
+                  <React.Fragment key={entry.id}>
                   <tr
-                    key={entry.id}
                     onDoubleClick={() => openEditModal(entry)}
                     className="cursor-pointer border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30"
                   >
                     <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
-                      {entry.content}
+                      <div className="flex items-center gap-1">
+                        {onFetchSubtasks && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpand(entry.id);
+                            }}
+                            className="shrink-0 rounded p-0.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+                            aria-label={expandedIds.has(entry.id) ? "Collapse subtasks" : "Expand subtasks"}
+                          >
+                            {expandedIds.has(entry.id) ? "▼" : "▶"}
+                          </button>
+                        )}
+                        <span>{entry.content}</span>
+                        {onCreateSubtask && onFetchSubtasks && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAddingSubtaskForId(entry.id);
+                              setNewSubtaskContent("");
+                              setNewSubtaskDue("");
+                            }}
+                            className="ml-1 shrink-0 text-[10px] text-sky-600 hover:underline dark:text-sky-400"
+                          >
+                            + Add subtask
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className={`px-2 py-2 ${isOverdue ? "text-orange-600 dark:text-orange-200" : ""}`}>
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -346,7 +426,172 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         ))}
                       </select>
                     </td>
+                    <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={entry.parent_id ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const newParentId = v === "" ? null : v;
+                          if (newParentId === (entry.parent_id ?? null)) return;
+                          void onUpdateEntry(entry.id, {
+                            content: entry.content,
+                            priority: (entry.priority as Priority) ?? "medium",
+                            tags: entry.tags,
+                            due_date: entry.due_date ?? null,
+                            parent_id: newParentId,
+                          });
+                        }}
+                        disabled={savingId === entry.id}
+                        className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                        aria-label="Move to task"
+                      >
+                        <option value="">Top level</option>
+                        {entries
+                          .filter((e) => e.id !== entry.id)
+                          .map((e) => (
+                            <option key={e.id} value={e.id}>
+                              {e.content.slice(0, 25)}
+                              {e.content.length > 25 ? "…" : ""}
+                            </option>
+                          ))}
+                      </select>
+                    </td>
                   </tr>
+                  {expandedIds.has(entry.id) && (
+                    <>
+                      {loadingSubtasksFor === entry.id ? (
+                        <tr key={`subtasks-loading-${entry.id}`}>
+                          <td colSpan={7} className="bg-slate-50 px-2 py-1 text-[10px] text-slate-500 dark:bg-slate-900/50 dark:text-slate-400">
+                            Loading subtasks…
+                          </td>
+                        </tr>
+                      ) : (
+                        (subtasksByParentId[entry.id] ?? []).map((sub) => {
+                          const subOverdue =
+                            !isCompletedTab &&
+                            !!sub.due_date &&
+                            sub.due_date < new Date().toISOString().slice(0, 10);
+                          const subStatus = (sub.task_status ?? "not_started") as TaskStatus;
+                          return (
+                            <tr
+                              key={sub.id}
+                              onDoubleClick={() => openEditModal(sub)}
+                              className="border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50"
+                            >
+                              <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
+                                <span className="text-slate-500 dark:text-slate-400">↳ </span>
+                                {sub.content}
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <div className="flex flex-wrap gap-1">
+                                  {sub.tags.length === 0 ? (
+                                    <span className="text-xs text-slate-500">—</span>
+                                  ) : (
+                                    sub.tags.map((t) => <TagChip key={t} label={t} />)
+                                  )}
+                                </div>
+                              </td>
+                              <td className="whitespace-nowrap px-2 py-1.5 text-xs text-slate-600 dark:text-slate-400">
+                                {sub.priority ?? "medium"}
+                              </td>
+                              <td className="whitespace-nowrap px-2 py-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                {sub.due_date ? new Date(sub.due_date + "T12:00:00").toLocaleDateString() : "—"}
+                              </td>
+                              <td className="whitespace-nowrap px-2 py-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                {new Date(sub.created_at).toLocaleString()}
+                              </td>
+                              <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                                <select
+                                  value={subStatus}
+                                  onChange={(e) => {
+                                    const v = e.target.value as TaskStatus;
+                                    void handleStatusChange(sub.id, v);
+                                  }}
+                                  disabled={updatingStatusId === sub.id}
+                                  className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                                >
+                                  {TASK_STATUS_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                                <select
+                                  value={sub.parent_id ?? ""}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    const newParentId = v === "" ? null : v;
+                                    if (newParentId === (sub.parent_id ?? null)) return;
+                                    void onUpdateEntry(sub.id, {
+                                      content: sub.content,
+                                      priority: (sub.priority as Priority) ?? "medium",
+                                      tags: sub.tags,
+                                      due_date: sub.due_date ?? null,
+                                      parent_id: newParentId,
+                                    });
+                                  }}
+                                  disabled={savingId === sub.id}
+                                  className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                                >
+                                  <option value="">Top level</option>
+                                  {entries.map((e) => (
+                                    <option key={e.id} value={e.id}>
+                                      {e.content.slice(0, 25)}
+                                      {e.content.length > 25 ? "…" : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                      {addingSubtaskForId === entry.id && (
+                        <tr key={`add-subtask-${entry.id}`}>
+                          <td colSpan={7} className="bg-sky-50/80 px-2 py-2 pl-8 dark:bg-sky-950/30">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="text"
+                                value={newSubtaskContent}
+                                onChange={(e) => setNewSubtaskContent(e.target.value)}
+                                placeholder="Subtask content"
+                                className="min-w-[160px] rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                                onKeyDown={(e) => e.key === "Enter" && void submitNewSubtask(entry.id)}
+                              />
+                              <input
+                                type="date"
+                                value={newSubtaskDue}
+                                onChange={(e) => setNewSubtaskDue(e.target.value)}
+                                className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void submitNewSubtask(entry.id)}
+                                disabled={!newSubtaskContent.trim() || savingSubtaskForId === entry.id}
+                                className="rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+                              >
+                                {savingSubtaskForId === entry.id ? "Adding…" : "Add"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAddingSubtaskForId(null);
+                                  setNewSubtaskContent("");
+                                  setNewSubtaskDue("");
+                                }}
+                                className="rounded border border-slate-400 px-2 py-1 text-xs dark:border-slate-600 dark:text-slate-300"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  )}
+                  </React.Fragment>
                 );
               })
             )}

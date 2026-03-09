@@ -44,6 +44,7 @@ async def get_entries(
     due_filter: str = Query(default="all", pattern="^(all|today|week|month|overdue)$"),
     from_date: str | None = Query(default=None, pattern="^\\d{4}-\\d{2}-\\d{2}$"),
     to_date: str | None = Query(default=None, pattern="^\\d{4}-\\d{2}-\\d{2}$"),
+    parent_id: str | None = Query(default=None, description="UUID of parent task; omit for top-level only"),
     sort_by: str = Query(default="created_at", pattern="^(content|created_at|tags|priority|due_date)$"),
     order: str = Query(default="desc", pattern="^(asc|desc)$"),
     limit: int = Query(default=20, ge=1, le=500),
@@ -52,6 +53,7 @@ async def get_entries(
 ) -> EntryListResponse:
     from_date_parsed = date_type.fromisoformat(from_date) if from_date else None
     to_date_parsed = date_type.fromisoformat(to_date) if to_date else None
+    parent_id_parsed = UUID(parent_id) if parent_id else None
     params = EntryQueryParams(
         search=search,
         tag=tag,
@@ -59,6 +61,7 @@ async def get_entries(
         due_filter=due_filter,  # type: ignore[arg-type]
         from_date=from_date_parsed,
         to_date=to_date_parsed,
+        parent_id=parent_id_parsed,
         sort_by=sort_by,  # type: ignore[arg-type]
         order=order,  # type: ignore[arg-type]
         limit=limit,

@@ -15,6 +15,7 @@ class EntryCreateRequest(BaseModel):
     tags: list[str] = Field(default_factory=list)
     due_date: Optional[date] = None
     task_status: TaskStatus = "not_started"
+    parent_id: Optional[UUID] = None
 
 
 class EntryResponse(BaseModel):
@@ -25,6 +26,7 @@ class EntryResponse(BaseModel):
     due_date: Optional[date] = None
     deleted_at: Optional[datetime] = None
     task_status: TaskStatus = "not_started"
+    parent_id: Optional[UUID] = None
     tags: list[str] = Field(default_factory=list)
 
 
@@ -47,6 +49,7 @@ class EntryQueryParams(BaseModel):
     due_filter: DueFilter = "all"
     from_date: date | None = None
     to_date: date | None = None
+    parent_id: UUID | None = None  # None = top-level only; set = subtasks of that entry
     sort_by: SortBy = "created_at"
     order: SortOrder = "desc"
     limit: int = 20
@@ -67,6 +70,7 @@ class EntryUpdateRequest(BaseModel):
     priority: Priority = "medium"
     tags: list[str] = Field(default_factory=list)
     due_date: Optional[date] = None
+    parent_id: Optional[UUID] = None
 
 
 class TagResponse(BaseModel):

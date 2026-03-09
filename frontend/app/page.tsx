@@ -9,6 +9,7 @@ import {
   SortBy,
   SortOrder,
   Tag,
+  createEntry,
   fetchEntries,
   fetchTags,
   updateEntry,
@@ -138,14 +139,50 @@ export default function Home() {
 
   const handleUpdateEntry = async (
     entryId: string,
-    payload: { content: string; priority: "high" | "medium" | "low"; tags: string[]; due_date?: string | null }
+    payload: {
+      content: string;
+      priority: "high" | "medium" | "low";
+      tags: string[];
+      due_date?: string | null;
+      parent_id?: string | null;
+    }
   ) => {
     const updated = await updateEntry(entryId, payload);
     setEntries((prev) =>
       prev.map((e) => (e.id === updated.id ? updated : e)),
     );
+    void loadEntries({ page: 0 });
     void refreshTagsForFilter();
     return updated;
+  };
+
+  const handleFetchSubtasks = async (parentId: string): Promise<Entry[]> => {
+    const res = await fetchEntries({
+      status: TAB_STATUS[activeTab],
+      due_filter: TAB_DUE_FILTER[activeTab],
+      parent_id: parentId,
+      sort_by: sortBy,
+      order,
+      limit: 100,
+      offset: 0,
+    });
+    return res.items;
+  };
+
+  const handleCreateSubtask = async (
+    parentId: string,
+    data: { content: string; priority?: "high" | "medium" | "low"; tags: string[]; due_date?: string | null }
+  ): Promise<Entry> => {
+    const entry = await createEntry({
+      content: data.content,
+      priority: data.priority ?? "medium",
+      tags: data.tags ?? [],
+      due_date: data.due_date ?? null,
+      parent_id: parentId,
+    });
+    void loadEntries({ page: 0 });
+    void refreshTagsForFilter();
+    return entry;
   };
 
   const handleUpdateStatus = async (entryId: string, taskStatus: "not_started" | "in_progress" | "done") => {
@@ -287,6 +324,8 @@ export default function Home() {
           onSortChange={handleSortChange}
           onUpdateEntry={handleUpdateEntry}
           onUpdateStatus={handleUpdateStatus}
+          onFetchSubtasks={handleFetchSubtasks}
+          onCreateSubtask={handleCreateSubtask}
           loading={loading}
           isCompletedTab={activeTab === "completed"}
         />

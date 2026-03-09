@@ -16,6 +16,7 @@ export interface Entry {
   due_date: string | null;
   deleted_at: string | null;
   task_status: TaskStatus;
+  parent_id: string | null;
   tags: string[];
 }
 
@@ -59,6 +60,7 @@ export async function createEntry(input: {
   priority?: Priority;
   tags: string[];
   due_date?: string | null;
+  parent_id?: string | null;
 }): Promise<Entry> {
   const tags = (input.tags || [])
     .map((t) => t.trim().toLowerCase())
@@ -66,6 +68,7 @@ export async function createEntry(input: {
   const priority = input.priority ?? "medium";
   const body: Record<string, unknown> = { content: input.content, priority, tags };
   if (input.due_date !== undefined && input.due_date !== "") body.due_date = input.due_date;
+  if (input.parent_id !== undefined && input.parent_id !== "") body.parent_id = input.parent_id;
   const res = await fetch(`${API_URL}/entries`, {
     method: "POST",
     headers: {
@@ -89,6 +92,7 @@ export interface FetchEntriesOptions {
   due_filter?: DueFilter;
   from_date?: string;
   to_date?: string;
+  parent_id?: string | null;
   sort_by?: SortBy;
   order?: SortOrder;
   limit?: number;
@@ -135,7 +139,7 @@ export async function restoreEntry(entryId: string): Promise<Entry> {
 
 export async function updateEntry(
   entryId: string,
-  payload: { content: string; priority: Priority; tags: string[]; due_date?: string | null }
+  payload: { content: string; priority: Priority; tags: string[]; due_date?: string | null; parent_id?: string | null }
 ): Promise<Entry> {
   const tags = (payload.tags || [])
     .map((t) => t.trim().toLowerCase())
@@ -146,6 +150,7 @@ export async function updateEntry(
     tags,
   };
   if (payload.due_date !== undefined) body.due_date = payload.due_date || null;
+  if (payload.parent_id !== undefined) body.parent_id = payload.parent_id ?? null;
   const res = await fetch(`${API_URL}/entries/${entryId}`, {
     method: "PUT",
     headers: {

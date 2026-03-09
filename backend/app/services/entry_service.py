@@ -21,6 +21,8 @@ async def create_entry_with_tags(client: Client, payload: EntryCreateRequest) ->
     }
     if payload.due_date is not None:
         row["due_date"] = payload.due_date.isoformat()
+    if getattr(payload, "parent_id", None) is not None:
+        row["parent_id"] = str(payload.parent_id)
     insert_resp = client.table("entries").insert(
         row,
         returning="representation",
@@ -45,6 +47,7 @@ async def create_entry_with_tags(client: Client, payload: EntryCreateRequest) ->
         due_date=getattr(entry, "due_date", None),
         deleted_at=getattr(entry, "deleted_at", None),
         task_status=getattr(entry, "task_status", "not_started"),
+        parent_id=getattr(entry, "parent_id", None),
         tags=[t.name for t in tags],
     )
 
@@ -94,6 +97,7 @@ async def update_entry(client: Client, entry_id: UUID, payload: EntryUpdateReque
         "content": payload.content,
         "priority": payload.priority,
         "due_date": payload.due_date.isoformat() if payload.due_date else None,
+        "parent_id": str(payload.parent_id) if getattr(payload, "parent_id", None) is not None else None,
     }
     client.table("entries").update(update_row).eq("id", str(entry_id)).execute()
 
@@ -113,6 +117,7 @@ async def update_entry(client: Client, entry_id: UUID, payload: EntryUpdateReque
         due_date=getattr(entry, "due_date", None),
         deleted_at=getattr(entry, "deleted_at", None),
         task_status=getattr(entry, "task_status", "not_started"),
+        parent_id=getattr(entry, "parent_id", None),
         tags=[t.name for t in tag_models],
     )
 
@@ -143,6 +148,7 @@ async def update_entry_tags(client: Client, entry_id: UUID, tags: Iterable[str])
         due_date=getattr(entry, "due_date", None),
         deleted_at=getattr(entry, "deleted_at", None),
         task_status=getattr(entry, "task_status", "not_started"),
+        parent_id=getattr(entry, "parent_id", None),
         tags=[t.name for t in tag_models],
     )
 
@@ -183,6 +189,7 @@ async def update_entry_status(client: Client, entry_id: UUID, task_status: TaskS
         due_date=getattr(entry_after, "due_date", None),
         deleted_at=getattr(entry_after, "deleted_at", None),
         task_status=getattr(entry_after, "task_status", "not_started"),
+        parent_id=getattr(entry_after, "parent_id", None),
         tags=sorted(tags_for_entry.get(str(entry_id), [])),
     )
 
@@ -208,6 +215,7 @@ def _entries_with_tags(
             due_date=getattr(e, "due_date", None),
             deleted_at=getattr(e, "deleted_at", None),
             task_status=getattr(e, "task_status", "not_started"),
+            parent_id=getattr(e, "parent_id", None),
             tags=sorted(tags_for_entry.get(str(e.id), [])),
         )
         for e in entries
@@ -234,6 +242,12 @@ async def list_entries(
         query = query.is_("deleted_at", "null")
     elif params.status == "completed":
         query = query.not_.is_("deleted_at", "null")
+
+    # Parent: top-level only (default) or subtasks of a specific entry
+    if params.parent_id is None:
+        query = query.is_("parent_id", "null")
+    else:
+        query = query.eq("parent_id", str(params.parent_id))
 
     # Due date filter: explicit range (calendar) or active-only presets
     if params.status == "active" and params.from_date is not None and params.to_date is not None:
@@ -292,6 +306,10 @@ async def list_entries(
             data_query = data_query.is_("deleted_at", "null")
         elif params.status == "completed":
             data_query = data_query.not_.is_("deleted_at", "null")
+        if params.parent_id is None:
+            data_query = data_query.is_("parent_id", "null")
+        else:
+            data_query = data_query.eq("parent_id", str(params.parent_id))
         if params.status == "active" and params.from_date is not None and params.to_date is not None:
             data_query = data_query.gte("due_date", params.from_date.isoformat()).lte("due_date", params.to_date.isoformat())
         elif params.status == "active" and params.due_filter != "all":

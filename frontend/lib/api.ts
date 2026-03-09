@@ -43,6 +43,14 @@ function buildQuery(params: Record<string, string | number | undefined>): string
   return query ? `?${query}` : "";
 }
 
+function errorMessage(detail: unknown, fallback: string): string {
+  if (detail == null) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail[0]?.msg) return detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join("; ");
+  if (typeof detail === "object" && "message" in detail && typeof (detail as { message: string }).message === "string") return (detail as { message: string }).message;
+  return fallback;
+}
+
 export async function createEntry(input: {
   content: string;
   priority?: Priority;
@@ -65,7 +73,7 @@ export async function createEntry(input: {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? "Failed to create entry");
+    throw new Error(errorMessage(body.detail, "Failed to create entry"));
   }
 
   return res.json();
@@ -92,7 +100,7 @@ export async function fetchEntries(options: FetchEntriesOptions): Promise<EntryL
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? "Failed to fetch entries");
+    throw new Error(errorMessage(body.detail, "Failed to fetch entries"));
   }
 
   return res.json();
@@ -105,7 +113,7 @@ export async function deleteEntry(entryId: string): Promise<void> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? "Failed to delete entry");
+    throw new Error(errorMessage(body.detail, "Failed to delete entry"));
   }
 }
 
@@ -116,7 +124,7 @@ export async function restoreEntry(entryId: string): Promise<Entry> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? "Failed to restore entry");
+    throw new Error(errorMessage(body.detail, "Failed to restore entry"));
   }
 
   return res.json();
@@ -145,7 +153,7 @@ export async function updateEntry(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? "Failed to update entry");
+    throw new Error(errorMessage(body.detail, "Failed to update entry"));
   }
 
   return res.json();
@@ -163,7 +171,7 @@ export async function updateEntryTags(entryId: string, tags: string[]): Promise<
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? "Failed to update entry tags");
+    throw new Error(errorMessage(body.detail, "Failed to update entry tags"));
   }
 
   return res.json();
@@ -178,7 +186,7 @@ export async function fetchTags(search?: string): Promise<TagListResponse> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? "Failed to fetch tags");
+    throw new Error(errorMessage(body.detail, "Failed to fetch tags"));
   }
 
   return res.json();

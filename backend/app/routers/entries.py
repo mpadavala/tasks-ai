@@ -37,7 +37,7 @@ async def get_entries(
     to_date: str | None = Query(default=None, pattern="^\\d{4}-\\d{2}-\\d{2}$"),
     sort_by: str = Query(default="created_at", pattern="^(content|created_at|tags|priority|due_date)$"),
     order: str = Query(default="desc", pattern="^(asc|desc)$"),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=20, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     client=Depends(get_supabase_client),
 ) -> EntryListResponse:

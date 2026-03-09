@@ -249,9 +249,9 @@ export default function Home() {
               { id: "today" as TabId, label: "Today" },
               { id: "week" as TabId, label: "This Week" },
               { id: "month" as TabId, label: "This Month" },
-              { id: "calendar" as TabId, label: "Calendar" },
               { id: "overdue" as TabId, label: "Overdue" },
               { id: "completed" as TabId, label: "Completed" },
+              { id: "calendar" as TabId, label: "Calendar" },
             ] as const
           ).map(({ id, label }) => (
             <button

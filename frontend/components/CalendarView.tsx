@@ -6,14 +6,21 @@ import { fetchEntries } from "@/lib/api";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+function toLocalDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const day = d.getDate();
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 function getMonthRange(month: Date): { from: string; to: string } {
   const y = month.getFullYear();
   const m = month.getMonth();
   const first = new Date(y, m, 1);
   const last = new Date(y, m + 1, 0);
   return {
-    from: first.toISOString().slice(0, 10),
-    to: last.toISOString().slice(0, 10),
+    from: toLocalDateString(first),
+    to: toLocalDateString(last),
   };
 }
 
@@ -44,7 +51,7 @@ function getCalendarGrid(month: Date): (Date | null)[][] {
 }
 
 function toDateKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return toLocalDateString(d);
 }
 
 interface CalendarViewProps {
@@ -81,7 +88,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       });
       setEntries(res.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load calendar");
+      const msg = err instanceof Error ? err.message : typeof err === "string" ? err : "Failed to load calendar";
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -96,7 +104,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const map: Record<string, Entry[]> = {};
     entries.forEach((e) => {
       if (!e.due_date) return;
-      const key = e.due_date;
+      const key = e.due_date.slice(0, 10);
       if (!map[key]) map[key] = [];
       map[key].push(e);
     });

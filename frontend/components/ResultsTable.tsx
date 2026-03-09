@@ -495,7 +495,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                               }
                               setAddingSubtaskForId(entry.id);
                               setNewSubtaskContent("");
-                              setNewSubtaskDue("");
+                              setNewSubtaskDue(entry.due_date ?? "");
                             }}
                             className="ml-1 shrink-0 text-[10px] text-sky-600 hover:underline dark:text-sky-400"
                           >

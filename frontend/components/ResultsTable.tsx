@@ -246,7 +246,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     }
   };
 
-  const handleStatusChange = async (entryId: string, taskStatus: TaskStatus) => {
+  const handleStatusChange = async (entryId: string, taskStatus: TaskStatus, parentId?: string) => {
     setUpdatingStatusId(entryId);
     setError(null);
     if (editModalEntry?.id === entryId) {
@@ -254,6 +254,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     }
     try {
       await onUpdateStatus(entryId, taskStatus);
+      if (parentId != null && onFetchSubtasks) {
+        const list = await onFetchSubtasks(parentId);
+        setSubtasksByParentId((prev) => ({ ...prev, [parentId]: list }));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
     } finally {
@@ -611,7 +615,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   value={subStatus}
                                   onChange={(e) => {
                                     const v = e.target.value as TaskStatus;
-                                    void handleStatusChange(sub.id, v);
+                                    void handleStatusChange(sub.id, v, entry.id);
                                   }}
                                   disabled={updatingStatusId === sub.id}
                                   className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"

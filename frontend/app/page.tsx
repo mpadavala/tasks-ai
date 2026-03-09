@@ -17,7 +17,6 @@ import {
 } from "@/lib/api";
 import { CalendarView } from "@/components/CalendarView";
 import { EntryForm } from "@/components/EntryForm";
-import { SearchBar } from "@/components/SearchBar";
 import { ResultsTable } from "@/components/ResultsTable";
 import { useTheme } from "@/components/ThemeProvider";
 
@@ -61,7 +60,6 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<SortBy>("created_at");
   const [order, setOrder] = useState<SortOrder>("desc");
 
-  const [panelTab, setPanelTab] = useState<"new" | "search">("new");
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +112,15 @@ export default function Home() {
     void refreshTagsForFilter();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "calendar") return;
+    const t = setTimeout(() => {
+      void loadEntries({ page: 0 });
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, tagFilter]);
 
   const handleCreated = (entry: Entry) => {
     setEntries((prev) => [entry, ...prev]);
@@ -191,16 +198,6 @@ export default function Home() {
     void refreshTagsForFilter();
   };
 
-  const handleSubmitSearch = () => {
-    void loadEntries({ page: 0 });
-  };
-
-  const handleFetchAll = () => {
-    setSearch("");
-    setTagFilter("");
-    void loadEntries({ page: 0 });
-  };
-
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
       <header className="flex flex-wrap items-start justify-between gap-2">
@@ -228,47 +225,7 @@ export default function Home() {
       </header>
 
       <section className="space-y-4">
-        <div className="flex gap-1 border-b border-slate-300 pb-2 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={() => setPanelTab("new")}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-              panelTab === "new"
-                ? "bg-sky-600 text-white"
-                : "bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700"
-            }`}
-          >
-            New Task
-          </button>
-          <button
-            type="button"
-            onClick={() => setPanelTab("search")}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-              panelTab === "search"
-                ? "bg-sky-600 text-white"
-                : "bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700"
-            }`}
-          >
-            Search &amp; Filter
-          </button>
-        </div>
-        {panelTab === "new" ? (
-          <EntryForm onCreated={handleCreated} />
-        ) : (
-          <SearchBar
-            search={search}
-            onSearchChange={setSearch}
-            tagFilter={tagFilter}
-            onTagFilterChange={setTagFilter}
-            sortBy={sortBy}
-            order={order}
-            onSortByChange={setSortBy}
-            onOrderChange={setOrder}
-            tagsForFilter={availableTags}
-            onSubmitSearch={handleSubmitSearch}
-            onFetchAll={handleFetchAll}
-          />
-        )}
+        <EntryForm onCreated={handleCreated} />
         <div className="flex flex-wrap gap-1 border-b border-slate-300 pb-2 dark:border-slate-800">
           {(
             [
@@ -328,6 +285,11 @@ export default function Home() {
           onCreateSubtask={handleCreateSubtask}
           loading={loading}
           isCompletedTab={activeTab === "completed"}
+          search={search}
+          onSearchChange={setSearch}
+          tagFilter={tagFilter}
+          onTagFilterChange={setTagFilter}
+          tagsForFilter={availableTags}
         />
       )}
     </main>

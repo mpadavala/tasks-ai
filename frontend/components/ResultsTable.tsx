@@ -3,10 +3,12 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Entry, type Priority, type TaskStatus, SortBy, SortOrder } from "@/lib/api";
+import type { Tag } from "@/lib/api";
 import { DatePickerInput } from "./DatePickerInput";
 import { TagChip } from "./TagChip";
 import { TagInput } from "./TagInput";
 import { PriorityInput } from "./PriorityInput";
+import { SearchBar } from "./SearchBar";
 
 function GripIcon({ className }: { className?: string }) {
   return (
@@ -36,6 +38,11 @@ interface ResultsTableProps {
   onCreateSubtask?: (parentId: string, data: { content: string; priority?: Priority; tags: string[]; due_date?: string | null }) => Promise<Entry>;
   loading: boolean;
   isCompletedTab?: boolean;
+  search?: string;
+  onSearchChange?: (value: string) => void;
+  tagFilter?: string;
+  onTagFilterChange?: (value: string) => void;
+  tagsForFilter?: Tag[];
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -53,6 +60,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onCreateSubtask,
   loading,
   isCompletedTab = false,
+  search = "",
+  onSearchChange,
+  tagFilter = "",
+  onTagFilterChange,
+  tagsForFilter = [],
 }) => {
   const [editModalEntry, setEditModalEntry] = useState<Entry | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -358,6 +370,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     <>
       {editModal}
       <section className="space-y-3 rounded-xl border border-slate-300 bg-slate-100/80 p-4 shadow-md dark:border-slate-800 dark:bg-slate-900/60">
+      {onSearchChange != null && (
+        <SearchBar
+          search={search}
+          onSearchChange={onSearchChange}
+          tagFilter={tagFilter}
+          onTagFilterChange={onTagFilterChange ?? (() => {})}
+          tagsForFilter={tagsForFilter}
+          embedded
+        />
+      )}
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
           Tasks

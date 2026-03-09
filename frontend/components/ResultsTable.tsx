@@ -57,7 +57,62 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [newSubtaskContent, setNewSubtaskContent] = useState("");
   const [newSubtaskDue, setNewSubtaskDue] = useState("");
   const [savingSubtaskForId, setSavingSubtaskForId] = useState<string | null>(null);
+  const [draggedEntry, setDraggedEntry] = useState<Entry | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [dropTargetTopLevel, setDropTargetTopLevel] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  const handleDragStart = (e: React.DragEvent, entry: Entry) => {
+    setDraggedEntry(entry);
+    e.dataTransfer.setData("text/plain", entry.id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("application/json", JSON.stringify(entry));
+  };
+
+  const handleDragEnd = () => {
+    setDraggedEntry(null);
+    setDropTargetId(null);
+    setDropTargetTopLevel(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetEntryId: string | null, isTopLevel: boolean) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (isTopLevel) {
+      setDropTargetId(null);
+      setDropTargetTopLevel(true);
+    } else if (targetEntryId && targetEntryId !== draggedEntry?.id) {
+      setDropTargetId(targetEntryId);
+      setDropTargetTopLevel(false);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    const related = e.relatedTarget as Node | null;
+    if (!related || !e.currentTarget.contains(related)) {
+      setDropTargetId(null);
+      setDropTargetTopLevel(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetParentId: string | null) => {
+    e.preventDefault();
+    if (!draggedEntry) return;
+    if (targetParentId === draggedEntry.id) return;
+    const newParentId = targetParentId;
+    if (newParentId === (draggedEntry.parent_id ?? null)) {
+      handleDragEnd();
+      return;
+    }
+    void onUpdateEntry(draggedEntry.id, {
+      content: draggedEntry.content,
+      priority: (draggedEntry.priority as Priority) ?? "medium",
+      tags: draggedEntry.tags,
+      due_date: draggedEntry.due_date ?? null,
+      parent_id: newParentId,
+    });
+    handleDragEnd();
+  };
 
   // Expand all tasks by default and fetch their subtasks when the entry list changes
   const entryIdsKey = entries.map((e) => e.id).join(",");
@@ -332,14 +387,27 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 {sortBy === "created_at" && (order === "asc" ? "↑" : "↓")}
               </th>
               <th className="px-2 py-2 w-28">Status</th>
-              <th className="px-2 py-2 w-32">Move to</th>
             </tr>
           </thead>
           <tbody>
+            {draggedEntry && entries.length > 0 && (
+              <tr
+                onDragOver={(e) => handleDragOver(e, null, true)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, null)}
+                className={`border-b border-slate-200 text-center text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 ${
+                  dropTargetTopLevel ? "bg-sky-100 dark:bg-sky-900/50" : "bg-slate-50/50 dark:bg-slate-900/30"
+                }`}
+              >
+                <td colSpan={6} className="py-2">
+                  Drop here for top-level task
+                </td>
+              </tr>
+            )}
             {entries.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={6}
                   className="px-2 py-8 text-center text-xs text-slate-500 dark:text-slate-500"
                 >
                   {loading ? "Loading..." : "No tasks match your filters."}
@@ -356,8 +424,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 return (
                   <React.Fragment key={entry.id}>
                   <tr
+                    draggable
                     onDoubleClick={() => openEditModal(entry)}
-                    className="cursor-pointer border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30"
+                    onDragStart={(e) => handleDragStart(e, entry)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOver(e, entry.id, false)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, entry.id)}
+                    className={`cursor-grab active:cursor-grabbing border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
+                      draggedEntry?.id === entry.id ? "opacity-50" : ""
+                    } ${dropTargetId === entry.id ? "ring-1 ring-inset ring-sky-500 bg-sky-50/80 dark:bg-sky-900/30" : ""}`}
                   >
                     <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
                       <div className="flex items-center gap-1">
@@ -438,42 +514,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         ))}
                       </select>
                     </td>
-                    <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={entry.parent_id ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          const newParentId = v === "" ? null : v;
-                          if (newParentId === (entry.parent_id ?? null)) return;
-                          void onUpdateEntry(entry.id, {
-                            content: entry.content,
-                            priority: (entry.priority as Priority) ?? "medium",
-                            tags: entry.tags,
-                            due_date: entry.due_date ?? null,
-                            parent_id: newParentId,
-                          });
-                        }}
-                        disabled={savingId === entry.id}
-                        className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                        aria-label="Move to task"
-                      >
-                        <option value="">Top level</option>
-                        {entries
-                          .filter((e) => e.id !== entry.id)
-                          .map((e) => (
-                            <option key={e.id} value={e.id}>
-                              {e.content.slice(0, 25)}
-                              {e.content.length > 25 ? "…" : ""}
-                            </option>
-                          ))}
-                      </select>
-                    </td>
                   </tr>
                   {expandedIds.has(entry.id) && (
                     <>
                       {loadingSubtasksFor === entry.id ? (
                         <tr key={`subtasks-loading-${entry.id}`}>
-                          <td colSpan={7} className="bg-slate-50 px-2 py-1 text-[10px] text-slate-500 dark:bg-slate-900/50 dark:text-slate-400">
+                          <td colSpan={6} className="bg-slate-50 px-2 py-1 text-[10px] text-slate-500 dark:bg-slate-900/50 dark:text-slate-400">
                             Loading subtasks…
                           </td>
                         </tr>
@@ -487,8 +533,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           return (
                             <tr
                               key={sub.id}
+                              draggable
                               onDoubleClick={() => openEditModal(sub)}
-                              className="border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50"
+                              onDragStart={(e) => handleDragStart(e, sub)}
+                              onDragEnd={handleDragEnd}
+                              onDragOver={(e) => handleDragOver(e, sub.id, false)}
+                              onDragLeave={handleDragLeave}
+                              onDrop={(e) => handleDrop(e, sub.id)}
+                              className={`cursor-grab active:cursor-grabbing border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
+                                draggedEntry?.id === sub.id ? "opacity-50" : ""
+                              } ${dropTargetId === sub.id ? "ring-1 ring-inset ring-sky-500 bg-sky-50/80 dark:bg-sky-900/30" : ""}`}
                             >
                               <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
                                 <span className="text-slate-500 dark:text-slate-400">↳ </span>
@@ -529,40 +583,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   ))}
                                 </select>
                               </td>
-                              <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
-                                <select
-                                  value={sub.parent_id ?? ""}
-                                  onChange={(e) => {
-                                    const v = e.target.value;
-                                    const newParentId = v === "" ? null : v;
-                                    if (newParentId === (sub.parent_id ?? null)) return;
-                                    void onUpdateEntry(sub.id, {
-                                      content: sub.content,
-                                      priority: (sub.priority as Priority) ?? "medium",
-                                      tags: sub.tags,
-                                      due_date: sub.due_date ?? null,
-                                      parent_id: newParentId,
-                                    });
-                                  }}
-                                  disabled={savingId === sub.id}
-                                  className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                                >
-                                  <option value="">Top level</option>
-                                  {entries.map((e) => (
-                                    <option key={e.id} value={e.id}>
-                                      {e.content.slice(0, 25)}
-                                      {e.content.length > 25 ? "…" : ""}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
                             </tr>
                           );
                         })
                       )}
                       {addingSubtaskForId === entry.id && (
                         <tr key={`add-subtask-${entry.id}`}>
-                          <td colSpan={7} className="bg-sky-50/80 px-2 py-2 pl-8 dark:bg-sky-950/30">
+                          <td colSpan={6} className="bg-sky-50/80 px-2 py-2 pl-8 dark:bg-sky-950/30">
                             <div className="flex flex-wrap items-center gap-2">
                               <input
                                 type="text"

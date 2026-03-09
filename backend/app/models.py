@@ -14,6 +14,7 @@ class EntryDB(BaseModel):
     created_at: datetime
     due_date: Optional[date] = None
     deleted_at: Optional[datetime] = None
+    task_status: str = "not_started"  # not_started | in_progress | done
 
 
 class TagDB(BaseModel):
@@ -39,6 +40,7 @@ class EntryWithTags(BaseModel):
     created_at: datetime
     due_date: Optional[date] = None
     deleted_at: Optional[datetime] = None
+    task_status: str = "not_started"
     tags: list[str] = Field(default_factory=list)
 
 

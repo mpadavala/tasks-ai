@@ -9,10 +9,19 @@ from ..schemas import (
     EntryListResponse,
     EntryQueryParams,
     EntryResponse,
+    EntryStatusUpdateRequest,
     EntryTagsUpdateRequest,
     EntryUpdateRequest,
 )
-from ..services.entry_service import create_entry_with_tags, list_entries, restore_entry, soft_delete_entry, update_entry, update_entry_tags
+from ..services.entry_service import (
+    create_entry_with_tags,
+    list_entries,
+    restore_entry,
+    soft_delete_entry,
+    update_entry,
+    update_entry_status,
+    update_entry_tags,
+)
 
 
 router = APIRouter(prefix="/entries", tags=["entries"])
@@ -63,6 +72,22 @@ async def get_entries(
         )
     except Exception as exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=f"Failed to fetch entries: {exc}") from exc
+
+
+@router.patch("/{entry_id}/status", response_model=EntryResponse)
+async def update_entry_status_endpoint(
+    entry_id: UUID,
+    body: EntryStatusUpdateRequest,
+    client=Depends(get_supabase_client),
+) -> EntryResponse:
+    """Update task status (Not Started, In Progress, Done). Setting to Done moves the task to Completed."""
+    try:
+        entry = await update_entry_status(client, entry_id, body.task_status)
+        return EntryResponse(**entry.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        raise HTTPException(status_code=500, detail=f"Failed to update status: {exc}") from exc
 
 
 @router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)

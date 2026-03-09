@@ -3,6 +3,8 @@ export type SortOrder = "asc" | "desc";
 
 export type Priority = "high" | "medium" | "low";
 
+export type TaskStatus = "not_started" | "in_progress" | "done";
+
 export type StatusFilter = "active" | "completed";
 export type DueFilter = "all" | "today" | "week" | "month" | "overdue";
 
@@ -13,6 +15,7 @@ export interface Entry {
   created_at: string;
   due_date: string | null;
   deleted_at: string | null;
+  task_status: TaskStatus;
   tags: string[];
 }
 
@@ -154,6 +157,23 @@ export async function updateEntry(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(errorMessage(body.detail, "Failed to update entry"));
+  }
+
+  return res.json();
+}
+
+export async function updateEntryStatus(entryId: string, taskStatus: TaskStatus): Promise<Entry> {
+  const res = await fetch(`${API_URL}/entries/${entryId}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ task_status: taskStatus }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(errorMessage(body.detail, "Failed to update status"));
   }
 
   return res.json();

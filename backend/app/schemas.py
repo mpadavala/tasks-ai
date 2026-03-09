@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 
 Priority = Literal["high", "medium", "low"]
+TaskStatus = Literal["not_started", "in_progress", "done"]
 
 
 class EntryCreateRequest(BaseModel):
@@ -13,6 +14,7 @@ class EntryCreateRequest(BaseModel):
     priority: Priority = "medium"
     tags: list[str] = Field(default_factory=list)
     due_date: Optional[date] = None
+    task_status: TaskStatus = "not_started"
 
 
 class EntryResponse(BaseModel):
@@ -22,7 +24,12 @@ class EntryResponse(BaseModel):
     created_at: datetime
     due_date: Optional[date] = None
     deleted_at: Optional[datetime] = None
+    task_status: TaskStatus = "not_started"
     tags: list[str] = Field(default_factory=list)
+
+
+class EntryStatusUpdateRequest(BaseModel):
+    task_status: TaskStatus
 
 
 SortBy = Literal["content", "created_at", "tags", "priority", "due_date"]

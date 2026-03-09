@@ -5,7 +5,7 @@ from uuid import UUID
 from supabase import Client
 
 from ..models import EntryDB, EntryTagDB, EntryWithTags
-from ..schemas import EntryCreateRequest, EntryQueryParams, EntryUpdateRequest
+from ..schemas import EntryCreateRequest, EntryQueryParams, EntryUpdateRequest, TaskStatus
 from .tag_service import get_or_create_tags
 
 
@@ -14,7 +14,11 @@ def _today_utc() -> date:
 
 
 async def create_entry_with_tags(client: Client, payload: EntryCreateRequest) -> EntryWithTags:
-    row: dict = {"content": payload.content, "priority": payload.priority}
+    row: dict = {
+        "content": payload.content,
+        "priority": payload.priority,
+        "task_status": getattr(payload, "task_status", "not_started"),
+    }
     if payload.due_date is not None:
         row["due_date"] = payload.due_date.isoformat()
     insert_resp = client.table("entries").insert(
@@ -40,6 +44,7 @@ async def create_entry_with_tags(client: Client, payload: EntryCreateRequest) ->
         created_at=entry.created_at,
         due_date=getattr(entry, "due_date", None),
         deleted_at=getattr(entry, "deleted_at", None),
+        task_status=getattr(entry, "task_status", "not_started"),
         tags=[t.name for t in tags],
     )
 
@@ -57,7 +62,7 @@ async def restore_entry(client: Client, entry_id: UUID) -> EntryWithTags:
     entry_resp = client.table("entries").select("*").eq("id", str(entry_id)).single().execute()
     if not entry_resp.data:
         raise ValueError("Entry not found")
-    resp = client.table("entries").update({"deleted_at": None}).eq("id", str(entry_id)).execute()
+    resp = client.table("entries").update({"deleted_at": None, "task_status": "not_started"}).eq("id", str(entry_id)).execute()
     if not resp.data or len(resp.data) == 0:
         raise ValueError("Entry not found")
     entry = EntryDB(**resp.data[0])
@@ -107,6 +112,7 @@ async def update_entry(client: Client, entry_id: UUID, payload: EntryUpdateReque
         created_at=entry.created_at,
         due_date=getattr(entry, "due_date", None),
         deleted_at=getattr(entry, "deleted_at", None),
+        task_status=getattr(entry, "task_status", "not_started"),
         tags=[t.name for t in tag_models],
     )
 
@@ -136,7 +142,48 @@ async def update_entry_tags(client: Client, entry_id: UUID, tags: Iterable[str])
         created_at=entry.created_at,
         due_date=getattr(entry, "due_date", None),
         deleted_at=getattr(entry, "deleted_at", None),
+        task_status=getattr(entry, "task_status", "not_started"),
         tags=[t.name for t in tag_models],
+    )
+
+
+async def update_entry_status(client: Client, entry_id: UUID, task_status: TaskStatus) -> EntryWithTags:
+    """Update an entry's task_status. Setting to 'done' soft-deletes (sets deleted_at). Other values clear deleted_at (restore)."""
+    entry_resp = client.table("entries").select("*").eq("id", str(entry_id)).single().execute()
+    if not entry_resp.data:
+        raise ValueError("Entry not found")
+    entry = EntryDB(**entry_resp.data)
+    now = datetime.now(timezone.utc).isoformat()
+    update_payload: dict = {"task_status": task_status}
+    if task_status == "done":
+        update_payload["deleted_at"] = now
+    else:
+        update_payload["deleted_at"] = None
+    client.table("entries").update(update_payload).eq("id", str(entry_id)).execute()
+    updated = client.table("entries").select("*").eq("id", str(entry_id)).single().execute()
+    entry_after = EntryDB(**updated.data)
+    et_resp = client.table("entry_tags").select("*").eq("entry_id", str(entry_id)).execute()
+    et_rows = [EntryTagDB(**row) for row in (et_resp.data or [])]
+    tag_ids = sorted({str(r.tag_id) for r in et_rows})
+    tags_by_id: dict[str, str] = {}
+    if tag_ids:
+        tags_resp = client.table("tags").select("*").in_("id", tag_ids).execute()
+        tags_by_id = {str(row["id"]): row["name"] for row in (tags_resp.data or [])}
+    tags_for_entry: dict[str, list[str]] = {str(entry_id): []}
+    for link in et_rows:
+        eid = str(link.entry_id)
+        tid = str(link.tag_id)
+        if eid in tags_for_entry and tid in tags_by_id:
+            tags_for_entry[eid].append(tags_by_id[tid])
+    return EntryWithTags(
+        id=entry_after.id,
+        content=entry_after.content,
+        priority=getattr(entry_after, "priority", "medium"),
+        created_at=entry_after.created_at,
+        due_date=getattr(entry_after, "due_date", None),
+        deleted_at=getattr(entry_after, "deleted_at", None),
+        task_status=getattr(entry_after, "task_status", "not_started"),
+        tags=sorted(tags_for_entry.get(str(entry_id), [])),
     )
 
 
@@ -160,6 +207,7 @@ def _entries_with_tags(
             created_at=e.created_at,
             due_date=getattr(e, "due_date", None),
             deleted_at=getattr(e, "deleted_at", None),
+            task_status=getattr(e, "task_status", "not_started"),
             tags=sorted(tags_for_entry.get(str(e.id), [])),
         )
         for e in entries

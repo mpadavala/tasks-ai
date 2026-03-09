@@ -9,11 +9,10 @@ import {
   SortBy,
   SortOrder,
   Tag,
-  deleteEntry,
   fetchEntries,
   fetchTags,
-  restoreEntry,
   updateEntry,
+  updateEntryStatus,
 } from "@/lib/api";
 import { CalendarView } from "@/components/CalendarView";
 import { EntryForm } from "@/components/EntryForm";
@@ -149,18 +148,9 @@ export default function Home() {
     return updated;
   };
 
-  const handleDeleteEntry = async (entryId: string) => {
-    await deleteEntry(entryId);
-    setEntries((prev) => prev.filter((e) => e.id !== entryId));
-    setTotal((prev) => Math.max(0, prev - 1));
+  const handleUpdateStatus = async (entryId: string, taskStatus: "not_started" | "in_progress" | "done") => {
+    await updateEntryStatus(entryId, taskStatus);
     void loadEntries({ page: 0 });
-    void refreshTagsForFilter();
-  };
-
-  const handleRestoreEntry = async (entryId: string) => {
-    await restoreEntry(entryId);
-    setEntries((prev) => prev.filter((e) => e.id !== entryId));
-    setTotal((prev) => Math.max(0, prev - 1));
     void refreshTagsForFilter();
   };
 
@@ -296,8 +286,7 @@ export default function Home() {
           order={order}
           onSortChange={handleSortChange}
           onUpdateEntry={handleUpdateEntry}
-          onDeleteEntry={handleDeleteEntry}
-          onRestoreEntry={handleRestoreEntry}
+          onUpdateStatus={handleUpdateStatus}
           loading={loading}
           isCompletedTab={activeTab === "completed"}
         />

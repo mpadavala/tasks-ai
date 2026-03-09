@@ -207,9 +207,6 @@ export default function Home() {
           <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
             TasksAI
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Capture tagged tasks and explore them with powerful filtering.
-          </p>
           {error && (
             <p className="text-xs text-red-400" role="alert">
               {error}

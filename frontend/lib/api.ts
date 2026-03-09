@@ -76,6 +76,8 @@ export interface FetchEntriesOptions {
   tag?: string;
   status?: StatusFilter;
   due_filter?: DueFilter;
+  from_date?: string;
+  to_date?: string;
   sort_by?: SortBy;
   order?: SortOrder;
   limit?: number;

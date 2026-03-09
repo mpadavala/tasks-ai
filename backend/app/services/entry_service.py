@@ -187,8 +187,10 @@ async def list_entries(
     elif params.status == "completed":
         query = query.not_.is_("deleted_at", "null")
 
-    # Due date filter (active only): today (includes overdue), week, month, overdue
-    if params.status == "active" and params.due_filter != "all":
+    # Due date filter: explicit range (calendar) or active-only presets
+    if params.status == "active" and params.from_date is not None and params.to_date is not None:
+        query = query.gte("due_date", params.from_date.isoformat()).lte("due_date", params.to_date.isoformat())
+    elif params.status == "active" and params.due_filter != "all":
         today = _today_utc()
         if params.due_filter == "today":
             # Today tab: due today or earlier (includes overdue)
@@ -242,7 +244,9 @@ async def list_entries(
             data_query = data_query.is_("deleted_at", "null")
         elif params.status == "completed":
             data_query = data_query.not_.is_("deleted_at", "null")
-        if params.status == "active" and params.due_filter != "all":
+        if params.status == "active" and params.from_date is not None and params.to_date is not None:
+            data_query = data_query.gte("due_date", params.from_date.isoformat()).lte("due_date", params.to_date.isoformat())
+        elif params.status == "active" and params.due_filter != "all":
             today = _today_utc()
             if params.due_filter == "today":
                 data_query = data_query.lte("due_date", today.isoformat()).not_.is_("due_date", "null")

@@ -38,6 +38,8 @@ class EntryQueryParams(BaseModel):
     tag: str | None = None
     status: StatusFilter = "active"
     due_filter: DueFilter = "all"
+    from_date: date | None = None
+    to_date: date | None = None
     sort_by: SortBy = "created_at"
     order: SortOrder = "desc"
     limit: int = 20

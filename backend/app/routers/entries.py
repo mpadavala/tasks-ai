@@ -1,3 +1,4 @@
+from datetime import date as date_type
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -32,17 +33,23 @@ async def get_entries(
     tag: str | None = Query(default=None),
     status: str = Query(default="active", pattern="^(active|completed)$"),
     due_filter: str = Query(default="all", pattern="^(all|today|week|month|overdue)$"),
+    from_date: str | None = Query(default=None, pattern="^\\d{4}-\\d{2}-\\d{2}$"),
+    to_date: str | None = Query(default=None, pattern="^\\d{4}-\\d{2}-\\d{2}$"),
     sort_by: str = Query(default="created_at", pattern="^(content|created_at|tags|priority|due_date)$"),
     order: str = Query(default="desc", pattern="^(asc|desc)$"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     client=Depends(get_supabase_client),
 ) -> EntryListResponse:
+    from_date_parsed = date_type.fromisoformat(from_date) if from_date else None
+    to_date_parsed = date_type.fromisoformat(to_date) if to_date else None
     params = EntryQueryParams(
         search=search,
         tag=tag,
         status=status,  # type: ignore[arg-type]
         due_filter=due_filter,  # type: ignore[arg-type]
+        from_date=from_date_parsed,
+        to_date=to_date_parsed,
         sort_by=sort_by,  # type: ignore[arg-type]
         order=order,  # type: ignore[arg-type]
         limit=limit,

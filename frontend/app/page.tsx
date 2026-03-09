@@ -15,6 +15,7 @@ import {
   restoreEntry,
   updateEntry,
 } from "@/lib/api";
+import { CalendarView } from "@/components/CalendarView";
 import { EntryForm } from "@/components/EntryForm";
 import { SearchBar } from "@/components/SearchBar";
 import { ResultsTable } from "@/components/ResultsTable";
@@ -22,7 +23,7 @@ import { useTheme } from "@/components/ThemeProvider";
 
 const PAGE_SIZE = 20;
 
-export type TabId = "today" | "week" | "month" | "all" | "overdue" | "completed";
+export type TabId = "today" | "week" | "month" | "all" | "overdue" | "completed" | "calendar";
 
 const TAB_STATUS: Record<TabId, StatusFilter> = {
   today: "active",
@@ -31,6 +32,7 @@ const TAB_STATUS: Record<TabId, StatusFilter> = {
   all: "active",
   overdue: "active",
   completed: "completed",
+  calendar: "active",
 };
 
 const TAB_DUE_FILTER: Record<TabId, DueFilter> = {
@@ -40,10 +42,11 @@ const TAB_DUE_FILTER: Record<TabId, DueFilter> = {
   all: "all",
   overdue: "overdue",
   completed: "all",
+  calendar: "all",
 };
 
 function getDefaultSortForTab(tab: TabId): { sortBy: SortBy; order: SortOrder } {
-  if (tab === "all") return { sortBy: "created_at", order: "desc" };
+  if (tab === "all" || tab === "calendar") return { sortBy: "created_at", order: "desc" };
   return { sortBy: "due_date", order: "asc" };
 }
 
@@ -107,7 +110,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    void loadEntries({ page: 0, tab: activeTab });
+    if (activeTab !== "calendar") void loadEntries({ page: 0, tab: activeTab });
     void refreshTagsForFilter();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -246,6 +249,7 @@ export default function Home() {
               { id: "today" as TabId, label: "Today" },
               { id: "week" as TabId, label: "This Week" },
               { id: "month" as TabId, label: "This Month" },
+              { id: "calendar" as TabId, label: "Calendar" },
               { id: "overdue" as TabId, label: "Overdue" },
               { id: "completed" as TabId, label: "Completed" },
             ] as const
@@ -253,13 +257,17 @@ export default function Home() {
             <button
               key={id}
               type="button"
-              onClick={() =>
-                void loadEntries({
-                  page: 0,
-                  tab: id,
-                  ...getDefaultSortForTab(id),
-                })
-              }
+              onClick={() => {
+                if (id === "calendar") {
+                  setActiveTab(id);
+                } else {
+                  void loadEntries({
+                    page: 0,
+                    tab: id,
+                    ...getDefaultSortForTab(id),
+                  });
+                }
+              }}
               className={`rounded-md px-3 py-1.5 text-xs font-medium ${
                 activeTab === id
                   ? "bg-sky-600 text-white"
@@ -272,21 +280,28 @@ export default function Home() {
         </div>
       </section>
 
-      <ResultsTable
-        entries={entries}
-        total={total}
-        page={page}
-        pageSize={PAGE_SIZE}
-        onPageChange={handlePageChange}
-        sortBy={sortBy}
-        order={order}
-        onSortChange={handleSortChange}
-        onUpdateEntry={handleUpdateEntry}
-        onDeleteEntry={handleDeleteEntry}
-        onRestoreEntry={handleRestoreEntry}
-        loading={loading}
-        isCompletedTab={activeTab === "completed"}
-      />
+      {activeTab === "calendar" ? (
+        <CalendarView
+          search={search || undefined}
+          tagFilter={tagFilter || undefined}
+        />
+      ) : (
+        <ResultsTable
+          entries={entries}
+          total={total}
+          page={page}
+          pageSize={PAGE_SIZE}
+          onPageChange={handlePageChange}
+          sortBy={sortBy}
+          order={order}
+          onSortChange={handleSortChange}
+          onUpdateEntry={handleUpdateEntry}
+          onDeleteEntry={handleDeleteEntry}
+          onRestoreEntry={handleRestoreEntry}
+          loading={loading}
+          isCompletedTab={activeTab === "completed"}
+        />
+      )}
     </main>
   );
 }

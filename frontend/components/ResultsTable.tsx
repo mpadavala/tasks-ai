@@ -490,6 +490,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!expandedIds.has(entry.id)) {
+                                toggleExpand(entry.id);
+                              }
                               setAddingSubtaskForId(entry.id);
                               setNewSubtaskContent("");
                               setNewSubtaskDue("");

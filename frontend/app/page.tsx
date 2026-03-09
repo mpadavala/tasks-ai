@@ -63,6 +63,7 @@ export default function Home() {
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   const loadEntries = async (
@@ -123,6 +124,7 @@ export default function Home() {
   }, [search, tagFilter]);
 
   const handleCreated = (entry: Entry) => {
+    setShowNewTaskModal(false);
     setEntries((prev) => [entry, ...prev]);
     setTotal((prev) => prev + 1);
     void loadEntries({
@@ -200,7 +202,7 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="flex flex-wrap items-start justify-between gap-2">
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
             TasksAI
@@ -214,18 +216,53 @@ export default function Home() {
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-          aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-        >
-          {theme === "dark" ? "Light" : "Dark"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowNewTaskModal(true)}
+            className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-sky-500 dark:bg-sky-500 dark:hover:bg-sky-600"
+          >
+            New task
+          </button>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
+        </div>
       </header>
 
+      {showNewTaskModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-task-modal-title"
+          onClick={() => setShowNewTaskModal(false)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-300 bg-slate-100 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowNewTaskModal(false)}
+              className="absolute right-3 top-3 rounded p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+              aria-label="Close"
+            >
+              <span className="text-lg leading-none">×</span>
+            </button>
+            <div className="p-4 pt-10">
+              <EntryForm onCreated={handleCreated} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <section className="space-y-4">
-        <EntryForm onCreated={handleCreated} />
         <div className="flex flex-wrap gap-1 border-b border-slate-300 pb-2 dark:border-slate-800">
           {(
             [

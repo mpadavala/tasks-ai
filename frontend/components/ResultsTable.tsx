@@ -59,6 +59,18 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [savingSubtaskForId, setSavingSubtaskForId] = useState<string | null>(null);
   useEffect(() => setMounted(true), []);
 
+  // Expand all tasks by default and fetch their subtasks when the entry list changes
+  const entryIdsKey = entries.map((e) => e.id).join(",");
+  useEffect(() => {
+    if (entries.length === 0 || !onFetchSubtasks) return;
+    setExpandedIds(new Set(entries.map((e) => e.id)));
+    entries.forEach((entry) => {
+      onFetchSubtasks(entry.id).then((list) =>
+        setSubtasksByParentId((prev) => ({ ...prev, [entry.id]: list }))
+      );
+    });
+  }, [entryIdsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleExpand = (entryId: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);

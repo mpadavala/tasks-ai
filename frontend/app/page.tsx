@@ -206,9 +206,20 @@ export default function Home() {
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+          <button
+            type="button"
+            onClick={() => {
+              void loadEntries({
+                page: 0,
+                tab: "all",
+                ...getDefaultSortForTab("all"),
+              });
+            }}
+            className="text-left text-lg font-semibold text-slate-900 transition hover:text-sky-600 dark:text-slate-50 dark:hover:text-sky-400"
+            aria-label="Go to all tasks"
+          >
             TasksAI
-          </h1>
+          </button>
           {error && (
             <p className="text-xs text-red-400" role="alert">
               {error}

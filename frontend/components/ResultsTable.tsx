@@ -545,73 +545,66 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         </p>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-left text-sm text-slate-900 dark:text-slate-100">
-          <thead>
-            <tr className="border-b border-slate-300 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
-              <th
-                className="px-2 py-2 cursor-pointer select-none"
-                onClick={() => toggleSort("content")}
-              >
-                Content {sortBy === "content" && (order === "asc" ? "↑" : "↓")}
-              </th>
-              <th
-                className="px-2 py-2 cursor-pointer select-none"
-                onClick={() => toggleSort("tags")}
-              >
-                Tags {sortBy === "tags" && (order === "asc" ? "↑" : "↓")}
-              </th>
-              <th
-                className="px-2 py-2 cursor-pointer select-none"
-                onClick={() => toggleSort("priority")}
-              >
-                Priority{" "}
-                {sortBy === "priority" && (order === "asc" ? "↑" : "↓")}
-              </th>
-              <th
-                className="px-2 py-2 cursor-pointer select-none"
-                onClick={() => toggleSort("due_date")}
-              >
-                Due date{" "}
-                {sortBy === "due_date" && (order === "asc" ? "↑" : "↓")}
-              </th>
-              <th
-                className="px-2 py-2 cursor-pointer select-none"
-                onClick={() => toggleSort("created_at")}
-              >
-                Created At{" "}
-                {sortBy === "created_at" && (order === "asc" ? "↑" : "↓")}
-              </th>
-              <th className="px-2 py-2 w-28">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mounted ? (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={pointerWithin}
-              onDragStart={handleDndDragStart}
-              onDragEnd={handleDndDragEnd}
-            >
-            <DragOverlay
-              modifiers={[snapCenterToCursor]}
-              dropAnimation={null}
-            >
-              {draggedEntry ? (
-                <DragPreviewCard entry={draggedEntry} isSubtask={!!draggedEntry.parent_id} />
-              ) : null}
-            </DragOverlay>
-            {draggedEntry && entries.length > 0 && (
-              <DroppableTr
-                id={DND_TOP_LEVEL_ID}
-                className="border-b border-slate-200 text-center text-xs text-slate-500 transition-colors duration-150 dark:border-slate-800 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/30"
-              >
-                <td colSpan={6} className="py-2">
-                  Drop here for top-level task
-                </td>
-              </DroppableTr>
-            )}
-            {entries.length === 0 ? (
+      <DndContext
+        sensors={sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={handleDndDragStart}
+        onDragEnd={handleDndDragEnd}
+      >
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm text-slate-900 dark:text-slate-100">
+            <thead>
+              <tr className="border-b border-slate-300 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                <th
+                  className="px-2 py-2 cursor-pointer select-none"
+                  onClick={() => toggleSort("content")}
+                >
+                  Content {sortBy === "content" && (order === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-2 py-2 cursor-pointer select-none"
+                  onClick={() => toggleSort("tags")}
+                >
+                  Tags {sortBy === "tags" && (order === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-2 py-2 cursor-pointer select-none"
+                  onClick={() => toggleSort("priority")}
+                >
+                  Priority{" "}
+                  {sortBy === "priority" && (order === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-2 py-2 cursor-pointer select-none"
+                  onClick={() => toggleSort("due_date")}
+                >
+                  Due date{" "}
+                  {sortBy === "due_date" && (order === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-2 py-2 cursor-pointer select-none"
+                  onClick={() => toggleSort("created_at")}
+                >
+                  Created At{" "}
+                  {sortBy === "created_at" && (order === "asc" ? "↑" : "↓")}
+                </th>
+                <th className="px-2 py-2 w-28">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mounted ? (
+                <>
+                  {draggedEntry && entries.length > 0 && (
+                    <DroppableTr
+                      id={DND_TOP_LEVEL_ID}
+                      className="border-b border-slate-200 text-center text-xs text-slate-500 transition-colors duration-150 dark:border-slate-800 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/30"
+                    >
+                      <td colSpan={6} className="py-2">
+                        Drop here for top-level task
+                      </td>
+                    </DroppableTr>
+                  )}
+                  {entries.length === 0 ? (
               <tr>
                 <td
                   colSpan={6}
@@ -862,10 +855,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 );
               })
             )}
-            </DndContext>
-            ) : (
-              <>
-                {entries.length === 0 ? (
+                </>
+              ) : (
+                <>
+                  {entries.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-2 py-8 text-center text-xs text-slate-500 dark:text-slate-500">
                       {loading ? "Loading..." : "No tasks match your filters."}
@@ -1033,11 +1026,22 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     );
                   })
                 )}
-              </>
-            )}
-          </tbody>
-        </table>
-      </div>
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {mounted &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <DragOverlay modifiers={[snapCenterToCursor]} dropAnimation={null}>
+              {draggedEntry ? (
+                <DragPreviewCard entry={draggedEntry} isSubtask={!!draggedEntry.parent_id} />
+              ) : null}
+            </DragOverlay>,
+            document.body
+          )}
+      </DndContext>
 
       {pageCount > 1 && (
         <div className="flex items-center justify-between pt-2 text-xs text-slate-500 dark:text-slate-400">

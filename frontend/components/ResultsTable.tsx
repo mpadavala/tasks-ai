@@ -211,7 +211,20 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     if (!captured || !over) return;
     const overId = String(over.id);
     if (overId === active.id) return; // can't drop on self
-    const newParentId = overId === DND_TOP_LEVEL_ID ? null : overId;
+    // Dropping on "top-level" zone → move to top-level. Dropping on a task/subtask → add to that task's parent (so dropping on a subtask adds as sibling under the same parent).
+    let newParentId: string | null;
+    if (overId === DND_TOP_LEVEL_ID) {
+      newParentId = null;
+    } else {
+      const overEntry = idToEntry.get(overId);
+      if (overEntry?.parent_id) {
+        // Dropped on a subtask: add to the parent of that subtask (become a sibling)
+        newParentId = overEntry.parent_id;
+      } else {
+        // Dropped on a top-level task: add as its subtask
+        newParentId = overId;
+      }
+    }
     const oldParentId = captured.parent_id ?? null;
     if (newParentId === oldParentId) return;
     try {

@@ -184,6 +184,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [newSubtaskDue, setNewSubtaskDue] = useState("");
   const [savingSubtaskForId, setSavingSubtaskForId] = useState<string | null>(null);
   const [draggedEntry, setDraggedEntry] = useState<Entry | null>(null);
+  const [justDroppedId, setJustDroppedId] = useState<string | null>(null);
+  const dropHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const newSubtaskInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => setMounted(true), []);
 
@@ -224,22 +226,43 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     if (!captured || !over) return;
     const overId = String(over.id);
     if (overId === active.id) return; // can't drop on self
-    // Dropping on "top-level" zone → move to top-level. Dropping on a task/subtask → add to that task's parent (so dropping on a subtask adds as sibling under the same parent).
+    // Dropping on "top-level" zone → move to top-level. Dropping on a task/subtask → add to that task's parent.
     let newParentId: string | null;
     if (overId === DND_TOP_LEVEL_ID) {
       newParentId = null;
     } else {
       const overEntry = idToEntry.get(overId);
       if (overEntry?.parent_id) {
-        // Dropped on a subtask: add to the parent of that subtask (become a sibling)
         newParentId = overEntry.parent_id;
       } else {
-        // Dropped on a top-level task: add as its subtask
         newParentId = overId;
       }
     }
     const oldParentId = captured.parent_id ?? null;
     if (newParentId === oldParentId) return;
+
+    // Optimistic update: move the item in the UI immediately so it doesn't "fly back"
+    const movedEntry: Entry = { ...captured, parent_id: newParentId };
+    const prevSubtasks = { ...subtasksByParentId };
+    setSubtasksByParentId((prev) => {
+      const next = { ...prev };
+      if (oldParentId) {
+        next[oldParentId] = (next[oldParentId] ?? []).filter((e) => e.id !== captured.id);
+      }
+      // Only add to new parent when moving from another parent (not from top-level, to avoid duplicate in UI)
+      if (newParentId && oldParentId !== null) {
+        next[newParentId] = [...(next[newParentId] ?? []), movedEntry];
+      }
+      return next;
+    });
+    if (newParentId) setExpandedIds((prev) => new Set([...prev, newParentId]));
+    if (dropHighlightTimerRef.current) clearTimeout(dropHighlightTimerRef.current);
+    setJustDroppedId(captured.id);
+    dropHighlightTimerRef.current = setTimeout(() => {
+      setJustDroppedId(null);
+      dropHighlightTimerRef.current = null;
+    }, 600);
+
     try {
       await onUpdateEntry(captured.id, {
         content: captured.content,
@@ -248,21 +271,24 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         due_date: captured.due_date ?? null,
         parent_id: newParentId,
       });
-      // Refetch old parent's subtasks so the moved item disappears from there
+      // Refetch to sync with server (keeps counts and order correct)
       if (oldParentId && onFetchSubtasks) {
         onFetchSubtasks(oldParentId).then((list) =>
           setSubtasksByParentId((prev) => ({ ...prev, [oldParentId]: list }))
         );
       }
-      // Refetch new parent's subtasks and expand so the moved item appears
       if (newParentId && onFetchSubtasks) {
-        setExpandedIds((prev) => new Set([...prev, newParentId]));
         onFetchSubtasks(newParentId).then((list) =>
           setSubtasksByParentId((prev) => ({ ...prev, [newParentId]: list }))
         );
       }
-      // Moving to top-level: parent's handleUpdateEntry already calls loadEntries()
     } catch {
+      if (dropHighlightTimerRef.current) {
+        clearTimeout(dropHighlightTimerRef.current);
+        dropHighlightTimerRef.current = null;
+      }
+      setJustDroppedId(null);
+      setSubtasksByParentId(prevSubtasks);
       setError("Failed to move task. Try again.");
     }
   };
@@ -567,11 +593,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               onDragStart={handleDndDragStart}
               onDragEnd={handleDndDragEnd}
             >
-            <DragOverlay modifiers={[snapCenterToCursor]}
-              dropAnimation={{
-                duration: 200,
-                easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
-              }}
+            <DragOverlay
+              modifiers={[snapCenterToCursor]}
+              dropAnimation={null}
             >
               {draggedEntry ? (
                 <DragPreviewCard entry={draggedEntry} isSubtask={!!draggedEntry.parent_id} />
@@ -612,7 +636,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     className={`border-b border-slate-200 align-top last:border-0 transition-colors duration-150 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
                       draggedEntry?.id === entry.id
                         ? "bg-slate-100/80 opacity-60 dark:bg-slate-800/50"
-                        : ""
+                        : justDroppedId === entry.id
+                          ? "animate-drop-in bg-sky-50 dark:bg-sky-900/40 ring-1 ring-inset ring-sky-300/70 dark:ring-sky-500/40"
+                          : ""
                     }`}
                   >
                     <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
@@ -732,7 +758,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                               className={`border-b border-slate-200 bg-slate-50/80 align-top last:border-0 transition-colors duration-150 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
                                 draggedEntry?.id === sub.id
                                   ? "bg-slate-200/60 opacity-60 dark:bg-slate-800/60"
-                                  : ""
+                                  : justDroppedId === sub.id
+                                    ? "animate-drop-in bg-sky-100/90 dark:bg-sky-900/50 ring-1 ring-inset ring-sky-300/70 dark:ring-sky-500/40"
+                                    : ""
                               }`}
                             >
                               <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
@@ -940,7 +968,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   <tr
                                     key={sub.id}
                                     onDoubleClick={() => openEditModal(sub)}
-                                    className="border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50"
+                                    className={`border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
+                                      justDroppedId === sub.id ? "animate-drop-in bg-sky-100/90 dark:bg-sky-900/50 ring-1 ring-inset ring-sky-300/70 dark:ring-sky-500/40" : ""
+                                    }`}
                                   >
                                     <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
                                       <div className="flex items-center gap-1">

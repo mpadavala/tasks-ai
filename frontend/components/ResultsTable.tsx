@@ -155,6 +155,16 @@ interface ResultsTableProps {
   onStatusFilterChange?: (value: "" | TaskStatus) => void;
   tagsForFilter?: Tag[];
   onClearFilters?: () => void;
+  /** When set, the row with this id is shown as selected and the details sidebar can show it. */
+  selectedEntryId?: string | null;
+  /** Called when user clicks a task row (single click). Pass the entry or null to clear. */
+  onSelectEntry?: (entry: Entry | null) => void;
+  /** When set, open the edit modal for the entry with this id (e.g. from "Edit task" in details sidebar). */
+  openEditEntryId?: string | null;
+  /** When opening edit from sidebar, pass the entry so subtasks are found even if row is collapsed. */
+  openEditEntry?: Entry | null;
+  /** Called when the edit modal is closed so the parent can clear openEditEntryId. */
+  onEditModalClose?: () => void;
 }
 
 export const ResultsTable: React.FC<ResultsTableProps> = ({
@@ -180,6 +190,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   onStatusFilterChange,
   tagsForFilter = [],
   onClearFilters,
+  selectedEntryId = null,
+  onSelectEntry,
+  openEditEntryId = null,
+  openEditEntry = null,
+  onEditModalClose,
 }) => {
   const [editModalEntry, setEditModalEntry] = useState<Entry | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -405,7 +420,20 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const closeEditModal = () => {
     setEditModalEntry(null);
     setError(null);
+    onEditModalClose?.();
   };
+
+  // Open edit modal when parent requests it (e.g. "Edit task" from details sidebar)
+  useEffect(() => {
+    if (!openEditEntryId) return;
+    const entry =
+      (openEditEntry?.id === openEditEntryId ? openEditEntry : null) ??
+      idToEntry.get(openEditEntryId) ??
+      entries.find((e) => e.id === openEditEntryId) ??
+      null;
+    if (entry) openEditModal(entry);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openEditEntryId]);
 
   const isEditDirty =
     editModalEntry &&
@@ -721,13 +749,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   <React.Fragment key={entry.id}>
                   <DraggableDroppableTr
                     id={entry.id}
+                    onClick={() => onSelectEntry?.(entry)}
                     onDoubleClick={() => openEditModal(entry)}
                     className={`border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
-                      draggedEntry?.id === entry.id
-                        ? "bg-slate-100/80 opacity-60 dark:bg-slate-800/50"
-                        : justDroppedId === entry.id
-                          ? "animate-drop-in bg-sky-50 dark:bg-sky-900/40 ring-1 ring-inset ring-sky-300/70 dark:ring-sky-500/40"
-                          : ""
+                      selectedEntryId === entry.id
+                        ? "bg-sky-100/80 dark:bg-sky-900/30 ring-1 ring-inset ring-sky-300/50 dark:ring-sky-500/30"
+                        : draggedEntry?.id === entry.id
+                          ? "bg-slate-100/80 opacity-60 dark:bg-slate-800/50"
+                          : justDroppedId === entry.id
+                            ? "animate-drop-in bg-sky-50 dark:bg-sky-900/40 ring-1 ring-inset ring-sky-300/70 dark:ring-sky-500/40"
+                            : ""
                     }`}
                   >
                     <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
@@ -807,7 +838,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           void handleStatusChange(entry.id, v);
                         }}
                         disabled={updatingStatusId === entry.id}
-                        className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                        className="task-status-select w-full min-w-0 rounded border border-slate-300 bg-slate-100 px-1.5 py-1 text-[10px] text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900/60 dark:text-slate-200"
                         aria-label="Task status"
                       >
                         {TASK_STATUS_OPTIONS.map((opt) => (
@@ -837,13 +868,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             <DraggableDroppableTr
                               key={sub.id}
                               id={sub.id}
+                              onClick={() => onSelectEntry?.(sub)}
                               onDoubleClick={() => openEditModal(sub)}
                               className={`border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
-                                draggedEntry?.id === sub.id
-                                  ? "bg-slate-200/60 opacity-60 dark:bg-slate-800/60"
-                                  : justDroppedId === sub.id
-                                    ? "animate-drop-in bg-sky-100/90 dark:bg-sky-900/50 ring-1 ring-inset ring-sky-300/70 dark:ring-sky-500/40"
-                                    : ""
+                                selectedEntryId === sub.id
+                                  ? "bg-sky-100/80 dark:bg-sky-900/30 ring-1 ring-inset ring-sky-300/50 dark:ring-sky-500/30"
+                                  : draggedEntry?.id === sub.id
+                                    ? "bg-slate-200/60 opacity-60 dark:bg-slate-800/60"
+                                    : justDroppedId === sub.id
+                                      ? "animate-drop-in bg-sky-100/90 dark:bg-sky-900/50 ring-1 ring-inset ring-sky-300/70 dark:ring-sky-500/40"
+                                      : ""
                               }`}
                             >
                               <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
@@ -878,7 +912,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                     void handleStatusChange(sub.id, v, entry.id);
                                   }}
                                   disabled={updatingStatusId === sub.id}
-                                  className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                                  className="task-status-select w-full min-w-0 rounded border border-slate-300 bg-slate-100 px-1.5 py-1 text-[10px] dark:border-slate-600 dark:bg-slate-900/60 dark:text-slate-200"
                                 >
                                   {TASK_STATUS_OPTIONS.map((opt) => (
                                     <option key={opt.value} value={opt.value}>
@@ -956,8 +990,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     return (
                       <React.Fragment key={entry.id}>
                         <tr
+                          onClick={() => onSelectEntry?.(entry)}
                           onDoubleClick={() => openEditModal(entry)}
-                          className="border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30"
+                          className={`border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
+                            selectedEntryId === entry.id
+                              ? "bg-sky-100/80 dark:bg-sky-900/30 ring-1 ring-inset ring-sky-300/50 dark:ring-sky-500/30"
+                              : ""
+                          }`}
                         >
                           <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
                             <div className="flex items-center gap-1.5">
@@ -1020,7 +1059,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                               value={currentStatus}
                               onChange={(e) => { const v = e.target.value as TaskStatus; void handleStatusChange(entry.id, v); }}
                               disabled={updatingStatusId === entry.id}
-                              className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                              className="task-status-select w-full min-w-0 rounded border border-slate-300 bg-slate-100 px-1.5 py-1 text-[10px] text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900/60 dark:text-slate-200"
                               aria-label="Task status"
                             >
                               {TASK_STATUS_OPTIONS.map((opt) => (
@@ -1041,9 +1080,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                 return (
                                   <tr
                                     key={sub.id}
+                                    onClick={() => onSelectEntry?.(sub)}
                                     onDoubleClick={() => openEditModal(sub)}
                                     className={`border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
-                                      justDroppedId === sub.id ? "animate-drop-in bg-sky-100/90 dark:bg-sky-900/50 ring-1 ring-inset ring-sky-300/70 dark:ring-sky-500/40" : ""
+                                      selectedEntryId === sub.id
+                                        ? "bg-sky-100/80 dark:bg-sky-900/30 ring-1 ring-inset ring-sky-300/50 dark:ring-sky-500/30"
+                                        : justDroppedId === sub.id
+                                          ? "animate-drop-in bg-sky-100/90 dark:bg-sky-900/50 ring-1 ring-inset ring-sky-300/70 dark:ring-sky-500/40"
+                                          : ""
                                     }`}
                                   >
                                     <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
@@ -1067,7 +1111,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                         value={subStatus}
                                         onChange={(e) => { const v = e.target.value as TaskStatus; void handleStatusChange(sub.id, v, entry.id); }}
                                         disabled={updatingStatusId === sub.id}
-                                        className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                                        className="task-status-select w-full min-w-0 rounded border border-slate-300 bg-slate-100 px-1.5 py-1 text-[10px] dark:border-slate-600 dark:bg-slate-900/60 dark:text-slate-200"
                                       >
                                         {TASK_STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                       </select>

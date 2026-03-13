@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import {
@@ -17,7 +17,9 @@ import {
 } from "@/lib/api";
 import { CalendarView } from "@/components/CalendarView";
 import { EntryForm } from "@/components/EntryForm";
+import { LeftSidebar } from "@/components/LeftSidebar";
 import { ResultsTable } from "@/components/ResultsTable";
+import { TaskDetailsSidebar } from "@/components/TaskDetailsSidebar";
 import { useTheme } from "@/components/ThemeProvider";
 
 const PAGE_SIZE = 20;
@@ -57,6 +59,7 @@ export default function Home() {
 
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("");
+  const [tagSearch, setTagSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | "not_started" | "in_progress" | "done">("");
   const [sortBy, setSortBy] = useState<SortBy>("created_at");
   const [order, setOrder] = useState<SortOrder>("desc");
@@ -65,6 +68,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
+  const [editEntryId, setEditEntryId] = useState<string | null>(null);
   const { theme, toggleTheme } = useTheme();
 
   const loadEntries = async (
@@ -125,6 +130,18 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, tagFilter, statusFilter]);
 
+  const handleTabChange = (tab: TabId) => {
+    if (tab === "calendar") {
+      setActiveTab("calendar");
+    } else {
+      void loadEntries({
+        page: 0,
+        tab,
+        ...getDefaultSortForTab(tab),
+      });
+    }
+  };
+
   const handleCreated = (entry: Entry) => {
     setShowNewTaskModal(false);
     setEntries((prev) => [entry, ...prev]);
@@ -162,6 +179,7 @@ export default function Home() {
     setEntries((prev) =>
       prev.map((e) => (e.id === updated.id ? updated : e)),
     );
+    if (selectedEntry?.id === updated.id) setSelectedEntry(updated);
     void loadEntries({ page: 0 });
     void refreshTagsForFilter();
     return updated;
@@ -198,52 +216,95 @@ export default function Home() {
 
   const handleUpdateStatus = async (entryId: string, taskStatus: "not_started" | "in_progress" | "done") => {
     await updateEntryStatus(entryId, taskStatus);
+    if (selectedEntry?.id === entryId) {
+      setSelectedEntry((prev) => (prev ? { ...prev, task_status: taskStatus } : null));
+    }
     void loadEntries({ page: 0 });
     void refreshTagsForFilter();
   };
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="space-y-1">
-          <button
-            type="button"
-            onClick={() => {
-              void loadEntries({
-                page: 0,
-                tab: "all",
-                ...getDefaultSortForTab("all"),
-              });
-            }}
-            className="text-left text-lg font-semibold text-slate-900 transition hover:text-sky-600 dark:text-slate-50 dark:hover:text-sky-400"
-            aria-label="Go to all tasks"
-          >
-            TasksAI
-          </button>
-          {error && (
-            <p className="text-xs text-red-400" role="alert">
-              {error}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950">
+      <LeftSidebar
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        tags={availableTags}
+        tagFilter={tagFilter}
+        onTagFilterChange={setTagFilter}
+        tagSearch={tagSearch}
+        onTagSearchChange={setTagSearch}
+        onThemeToggle={toggleTheme}
+        theme={theme}
+      />
+
+      <main className="flex min-w-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
+          <div className="min-w-0">
+            {error && (
+              <p className="truncate text-xs text-red-400" role="alert">
+                {error}
+              </p>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => setShowNewTaskModal(true)}
-            className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-sky-500 dark:bg-sky-500 dark:hover:bg-sky-600"
+            className="shrink-0 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-sky-500 dark:bg-sky-500 dark:hover:bg-sky-600"
           >
             New task
           </button>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-          >
-            {theme === "dark" ? "Light" : "Dark"}
-          </button>
+        </header>
+
+        <div className="flex-1 overflow-auto p-4">
+          {activeTab === "calendar" ? (
+            <CalendarView
+              search={search || undefined}
+              tagFilter={tagFilter || undefined}
+            />
+          ) : (
+            <ResultsTable
+              entries={entries}
+              total={total}
+              page={page}
+              pageSize={PAGE_SIZE}
+              onPageChange={handlePageChange}
+              sortBy={sortBy}
+              order={order}
+              onSortChange={handleSortChange}
+              onUpdateEntry={handleUpdateEntry}
+              onUpdateStatus={handleUpdateStatus}
+              onFetchSubtasks={handleFetchSubtasks}
+              onCreateSubtask={handleCreateSubtask}
+              loading={loading}
+              isCompletedTab={activeTab === "completed"}
+              search={search}
+              onSearchChange={setSearch}
+              tagFilter={tagFilter}
+              onTagFilterChange={setTagFilter}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              tagsForFilter={availableTags}
+              onClearFilters={() => {
+                setStatusFilter("");
+                setTagFilter("");
+              }}
+              selectedEntryId={selectedEntry?.id ?? null}
+              onSelectEntry={setSelectedEntry}
+              openEditEntryId={editEntryId}
+              openEditEntry={editEntryId && selectedEntry?.id === editEntryId ? selectedEntry : null}
+              onEditModalClose={() => setEditEntryId(null)}
+            />
+          )}
         </div>
-      </header>
+      </main>
+
+      {selectedEntry && (
+        <TaskDetailsSidebar
+          entry={selectedEntry}
+          onClose={() => setSelectedEntry(null)}
+          onEdit={(entry) => setEditEntryId(entry.id)}
+        />
+      )}
 
       {showNewTaskModal && (
         <div
@@ -271,81 +332,6 @@ export default function Home() {
           </div>
         </div>
       )}
-
-      <section className="space-y-4">
-        <div className="flex flex-wrap gap-1 border-b border-slate-300 pb-2 dark:border-slate-800">
-          {(
-            [
-              { id: "all" as TabId, label: "All" },
-              { id: "today" as TabId, label: "Today" },
-              { id: "week" as TabId, label: "This Week" },
-              { id: "month" as TabId, label: "This Month" },
-              { id: "overdue" as TabId, label: "Overdue" },
-              { id: "completed" as TabId, label: "Completed" },
-              { id: "calendar" as TabId, label: "Calendar" },
-            ] as const
-          ).map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                if (id === "calendar") {
-                  setActiveTab(id);
-                } else {
-                  void loadEntries({
-                    page: 0,
-                    tab: id,
-                    ...getDefaultSortForTab(id),
-                  });
-                }
-              }}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-                activeTab === id
-                  ? "bg-sky-600 text-white"
-                  : "bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {activeTab === "calendar" ? (
-        <CalendarView
-          search={search || undefined}
-          tagFilter={tagFilter || undefined}
-        />
-      ) : (
-        <ResultsTable
-          entries={entries}
-          total={total}
-          page={page}
-          pageSize={PAGE_SIZE}
-          onPageChange={handlePageChange}
-          sortBy={sortBy}
-          order={order}
-          onSortChange={handleSortChange}
-          onUpdateEntry={handleUpdateEntry}
-          onUpdateStatus={handleUpdateStatus}
-          onFetchSubtasks={handleFetchSubtasks}
-          onCreateSubtask={handleCreateSubtask}
-          loading={loading}
-          isCompletedTab={activeTab === "completed"}
-          search={search}
-          onSearchChange={setSearch}
-          tagFilter={tagFilter}
-          onTagFilterChange={setTagFilter}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          tagsForFilter={availableTags}
-          onClearFilters={() => {
-            setStatusFilter("");
-            setTagFilter("");
-          }}
-        />
-      )}
-    </main>
+    </div>
   );
 }
-

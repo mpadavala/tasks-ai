@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   DndContext,
@@ -184,7 +184,20 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [newSubtaskDue, setNewSubtaskDue] = useState("");
   const [savingSubtaskForId, setSavingSubtaskForId] = useState<string | null>(null);
   const [draggedEntry, setDraggedEntry] = useState<Entry | null>(null);
+  const newSubtaskInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => setMounted(true), []);
+
+  // Focus the new subtask textbox when the add-subtask row is shown
+  useEffect(() => {
+    if (!addingSubtaskForId) return;
+    const input = newSubtaskInputRef.current;
+    if (input) {
+      const id = requestAnimationFrame(() => {
+        input.focus();
+      });
+      return () => cancelAnimationFrame(id);
+    }
+  }, [addingSubtaskForId]);
 
   const idToEntry = useMemo(() => {
     const m = new Map<string, Entry>();
@@ -778,6 +791,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           <td colSpan={6} className="bg-sky-50/80 px-2 py-2 pl-8 dark:bg-sky-950/30">
                             <div className="flex flex-wrap items-center gap-2">
                               <input
+                                ref={newSubtaskInputRef}
                                 type="text"
                                 value={newSubtaskContent}
                                 onChange={(e) => setNewSubtaskContent(e.target.value)}
@@ -966,6 +980,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                 <td colSpan={6} className="bg-sky-50/80 px-2 py-2 pl-8 dark:bg-sky-950/30">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <input
+                                      ref={newSubtaskInputRef}
                                       type="text"
                                       value={newSubtaskContent}
                                       onChange={(e) => setNewSubtaskContent(e.target.value)}

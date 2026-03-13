@@ -134,24 +134,43 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     }
   };
 
-  const handleDrop = (e: React.DragEvent, targetParentId: string | null) => {
+  const handleDrop = async (e: React.DragEvent, targetParentId: string | null) => {
     e.preventDefault();
     e.stopPropagation();
     if (!draggedEntry) return;
     if (targetParentId === draggedEntry.id) return;
     const newParentId = targetParentId;
-    if (newParentId === (draggedEntry.parent_id ?? null)) {
+    const oldParentId = draggedEntry.parent_id ?? null;
+    if (newParentId === oldParentId) {
       handleDragEnd();
       return;
     }
-    void onUpdateEntry(draggedEntry.id, {
-      content: draggedEntry.content,
-      priority: (draggedEntry.priority as Priority) ?? "medium",
-      tags: draggedEntry.tags,
-      due_date: draggedEntry.due_date ?? null,
-      parent_id: newParentId,
-    });
+    const captured = draggedEntry;
     handleDragEnd();
+    try {
+      await onUpdateEntry(captured.id, {
+        content: captured.content,
+        priority: (captured.priority as Priority) ?? "medium",
+        tags: captured.tags,
+        due_date: captured.due_date ?? null,
+        parent_id: newParentId,
+      });
+      // Refresh the old parent's subtask list to remove the moved task
+      if (oldParentId && onFetchSubtasks) {
+        onFetchSubtasks(oldParentId).then((list) =>
+          setSubtasksByParentId((prev) => ({ ...prev, [oldParentId]: list }))
+        );
+      }
+      // Refresh the new parent's subtask list and expand it so the moved task is visible
+      if (newParentId && onFetchSubtasks) {
+        setExpandedIds((prev) => new Set([...prev, newParentId]));
+        onFetchSubtasks(newParentId).then((list) =>
+          setSubtasksByParentId((prev) => ({ ...prev, [newParentId]: list }))
+        );
+      }
+    } catch {
+      // errors are handled upstream by onUpdateEntry
+    }
   };
 
   // Expand all tasks by default and fetch their subtasks when the entry list changes
@@ -451,7 +470,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
               <tr
                 onDragOver={(e) => handleDragOver(e, null, true)}
                 onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, null)}
+                onDrop={(e) => { void handleDrop(e, null); }}
                 className={`border-b border-slate-200 text-center text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 ${
                   dropTargetTopLevel ? "bg-sky-100 dark:bg-sky-900/50" : "bg-slate-50/50 dark:bg-slate-900/30"
                 }`}
@@ -484,7 +503,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     onDoubleClick={() => openEditModal(entry)}
                     onDragOver={(e) => handleDragOver(e, entry.id, false)}
                     onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, entry.id)}
+                    onDrop={(e) => { void handleDrop(e, entry.id); }}
                     onDragEnd={handleDragEnd}
                     className={`border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
                       draggedEntry?.id === entry.id ? "opacity-50" : ""
@@ -604,7 +623,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                               onDoubleClick={() => openEditModal(sub)}
                               onDragOver={(e) => handleDragOver(e, sub.id, false)}
                               onDragLeave={handleDragLeave}
-                              onDrop={(e) => handleDrop(e, sub.id)}
+                              onDrop={(e) => { void handleDrop(e, sub.id); }}
                               onDragEnd={handleDragEnd}
                               className={`border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
                                 draggedEntry?.id === sub.id ? "opacity-50" : ""

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   DndContext,
@@ -38,19 +38,46 @@ function GripIcon({ className }: { className?: string }) {
   );
 }
 
-function DraggableGrip({ id, className, children }: { id: string; className?: string; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
+/** Visual-only grip icon (used when the whole row is draggable via DraggableDroppableTr). */
+function GripAffordance({ className }: { className?: string }) {
   return (
     <div
-      ref={setNodeRef}
-      className={`${className ?? ""} transition-opacity duration-150 ease-out ${isDragging ? "opacity-30" : ""}`}
-      {...listeners}
-      {...attributes}
+      className={className ?? ""}
       title="Drag to move task"
-      aria-label="Drag to move task"
+      aria-hidden
     >
-      {children}
+      <GripIcon className="h-4 w-4" />
     </div>
+  );
+}
+
+/** Row that is both droppable and draggable; drag from anywhere on the row. */
+function DraggableDroppableTr({
+  id,
+  className,
+  children,
+  ...rest
+}: {
+  id: string;
+  className?: string;
+  children: React.ReactNode;
+} & React.HTMLAttributes<HTMLTableRowElement>) {
+  const { isOver, setNodeRef: setDroppableRef } = useDroppable({ id });
+  const { attributes, listeners, setNodeRef: setDraggableRef, isDragging } = useDraggable({ id });
+  const setRef = useCallback(
+    (node: HTMLTableRowElement | null) => {
+      setDroppableRef(node);
+      setDraggableRef(node);
+    },
+    [setDroppableRef, setDraggableRef]
+  );
+  const highlight = isOver ? "ring-2 ring-inset ring-sky-500 bg-sky-50/90 dark:bg-sky-900/40" : "";
+  const dragOpacity = isDragging ? "opacity-60" : "";
+  const combined = [className, highlight, dragOpacity, "transition-all duration-150 ease-out cursor-grab active:cursor-grabbing"].filter(Boolean).join(" ");
+  return (
+    <tr ref={setRef} className={combined} {...attributes} {...listeners} {...rest}>
+      {children}
+    </tr>
   );
 }
 
@@ -623,10 +650,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 const currentStatus = (entry.task_status ?? "not_started") as TaskStatus;
                 return (
                   <React.Fragment key={entry.id}>
-                  <DroppableTr
+                  <DraggableDroppableTr
                     id={entry.id}
                     onDoubleClick={() => openEditModal(entry)}
-                    className={`border-b border-slate-200 align-top last:border-0 transition-colors duration-150 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
+                    className={`border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
                       draggedEntry?.id === entry.id
                         ? "bg-slate-100/80 opacity-60 dark:bg-slate-800/50"
                         : justDroppedId === entry.id
@@ -636,12 +663,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   >
                     <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
                       <div className="flex items-center gap-1.5">
-                        <DraggableGrip
-                          id={entry.id}
-                          className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center self-stretch rounded border border-transparent py-1 pr-1 text-slate-400 hover:border-slate-300 hover:bg-slate-200 hover:text-slate-600 active:cursor-grabbing dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300"
-                        >
-                          <GripIcon className="h-4 w-4" />
-                        </DraggableGrip>
+                        <GripAffordance
+                          className="flex shrink-0 touch-none select-none items-center justify-center self-stretch rounded border border-transparent py-1 pr-1 text-slate-400 dark:text-slate-500"
+                        />
                         {onFetchSubtasks && (
                           <span className="flex shrink-0 items-center gap-0.5">
                             <button
@@ -727,7 +751,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         ))}
                       </select>
                     </td>
-                  </DroppableTr>
+                  </DraggableDroppableTr>
                   {expandedIds.has(entry.id) && (
                     <>
                       {loadingSubtasksFor === entry.id ? (
@@ -744,11 +768,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             sub.due_date < new Date().toISOString().slice(0, 10);
                           const subStatus = (sub.task_status ?? "not_started") as TaskStatus;
                           return (
-                            <DroppableTr
+                            <DraggableDroppableTr
                               key={sub.id}
                               id={sub.id}
                               onDoubleClick={() => openEditModal(sub)}
-                              className={`border-b border-slate-200 bg-slate-50/80 align-top last:border-0 transition-colors duration-150 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
+                              className={`border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
                                 draggedEntry?.id === sub.id
                                   ? "bg-slate-200/60 opacity-60 dark:bg-slate-800/60"
                                   : justDroppedId === sub.id
@@ -758,12 +782,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             >
                               <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
                                 <div className="flex items-center gap-1">
-                                  <DraggableGrip
-                                    id={sub.id}
-                                    className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center rounded py-0.5 pr-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 active:cursor-grabbing dark:hover:bg-slate-700 dark:hover:text-slate-300"
-                                  >
-                                    <GripIcon className="h-3 w-3" />
-                                  </DraggableGrip>
+                                  <GripAffordance
+                                    className="flex shrink-0 touch-none select-none items-center justify-center rounded py-0.5 pr-0.5 text-slate-400 dark:text-slate-500"
+                                  />
                                   <span className="text-slate-500 dark:text-slate-400">↳ </span>
                                   {sub.content}
                                 </div>
@@ -803,7 +824,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   ))}
                                 </select>
                               </td>
-                            </DroppableTr>
+                            </DraggableDroppableTr>
                           );
                         })
                       )}

@@ -222,6 +222,34 @@ def _entries_with_tags(
     ]
 
 
+def _attach_subtask_counts(
+    client: Client,
+    results: list[EntryWithTags],
+    parent_id: UUID | None,
+) -> list[EntryWithTags]:
+    """When listing top-level entries, attach subtask_count to each result."""
+    if parent_id is not None or not results:
+        return results
+    entry_ids = [str(e.id) for e in results]
+    # Count subtasks (non-deleted) per parent
+    sub_resp = (
+        client.table("entries")
+        .select("parent_id")
+        .in_("parent_id", entry_ids)
+        .is_("deleted_at", "null")
+        .execute()
+    )
+    count_by_parent: dict[str, int] = {eid: 0 for eid in entry_ids}
+    for row in sub_resp.data or []:
+        pid = row.get("parent_id")
+        if pid:
+            count_by_parent[pid] = count_by_parent.get(pid, 0) + 1
+    return [
+        EntryWithTags(**{**e.model_dump(), "subtask_count": count_by_parent.get(str(e.id), 0)})
+        for e in results
+    ]
+
+
 async def list_entries(
     client: Client,
     params: EntryQueryParams,
@@ -352,7 +380,8 @@ async def list_entries(
         )
         start = params.offset
         end = params.offset + params.limit
-        return results[start:end], total_count
+        page_results = _attach_subtask_counts(client, results[start:end], params.parent_id)
+        return page_results, total_count
 
     # DB-backed sort (content, created_at)
     sort_column = params.sort_by
@@ -373,11 +402,13 @@ async def list_entries(
     et_resp = client.table("entry_tags").select("*").in_("entry_id", entry_ids_list).execute()
     et_rows = [EntryTagDB(**row) for row in (et_resp.data or [])]
     if not et_rows:
-        return _entries_with_tags(entries, [], {}), total_count
+        raw = _entries_with_tags(entries, [], {})
+        return _attach_subtask_counts(client, raw, params.parent_id), total_count
 
     tag_ids = sorted({str(r.tag_id) for r in et_rows})
     tags_resp = client.table("tags").select("*").in_("id", tag_ids).execute()
     tags_by_id = {str(row["id"]): row["name"] for row in (tags_resp.data or [])}
 
-    return _entries_with_tags(entries, et_rows, tags_by_id), total_count
+    raw = _entries_with_tags(entries, et_rows, tags_by_id)
+    return _attach_subtask_counts(client, raw, params.parent_id), total_count
 

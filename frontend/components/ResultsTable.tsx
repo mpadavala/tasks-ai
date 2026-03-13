@@ -522,17 +522,24 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                           <GripIcon className="h-4 w-4" />
                         </div>
                         {onFetchSubtasks && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleExpand(entry.id);
-                            }}
-                            className="shrink-0 rounded p-0.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
-                            aria-label={expandedIds.has(entry.id) ? "Collapse subtasks" : "Expand subtasks"}
-                          >
-                            {expandedIds.has(entry.id) ? "▼" : "▶"}
-                          </button>
+                          <span className="flex shrink-0 items-center gap-0.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpand(entry.id);
+                              }}
+                              className="rounded p-0.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+                              aria-label={expandedIds.has(entry.id) ? "Collapse subtasks" : "Expand subtasks"}
+                            >
+                              {expandedIds.has(entry.id) ? "▼" : "▶"}
+                            </button>
+                            {(typeof entry.subtask_count === "number" || entry.id in subtasksByParentId) && (
+                              <span className="min-w-[1.25rem] text-[10px] text-slate-400 dark:text-slate-500" aria-label={`${(subtasksByParentId[entry.id]?.length ?? entry.subtask_count ?? 0)} subtask(s)`}>
+                                ({subtasksByParentId[entry.id] ? subtasksByParentId[entry.id].length : (entry.subtask_count ?? 0)})
+                              </span>
+                            )}
+                          </span>
                         )}
                         <span>{entry.content}</span>
                         {onCreateSubtask && onFetchSubtasks && (

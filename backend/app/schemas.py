@@ -28,6 +28,7 @@ class EntryResponse(BaseModel):
     task_status: TaskStatus = "not_started"
     parent_id: Optional[UUID] = None
     tags: list[str] = Field(default_factory=list)
+    subtask_count: Optional[int] = None  # Number of direct subtasks (when listing top-level)
 
 
 class EntryStatusUpdateRequest(BaseModel):

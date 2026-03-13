@@ -44,6 +44,7 @@ class EntryWithTags(BaseModel):
     task_status: str = "not_started"
     parent_id: Optional[UUID] = None
     tags: list[str] = Field(default_factory=list)
+    subtask_count: Optional[int] = None  # Set when listing top-level entries
 
 
 class TagWithUsage(BaseModel):

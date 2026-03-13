@@ -18,6 +18,8 @@ export interface Entry {
   task_status: TaskStatus;
   parent_id: string | null;
   tags: string[];
+  /** Number of direct subtasks (from API when listing top-level entries). */
+  subtask_count?: number | null;
 }
 
 export interface EntryListResponse {

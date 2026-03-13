@@ -88,17 +88,21 @@ async def delete_entry(client: Client, entry_id: UUID) -> None:
 
 
 async def update_entry(client: Client, entry_id: UUID, payload: EntryUpdateRequest) -> EntryWithTags:
-    """Update an entry's content, priority, and tags."""
+    """Update an entry's content, priority, tags, and only those optional fields that were sent."""
     entry_resp = client.table("entries").select("*").eq("id", str(entry_id)).single().execute()
     if not entry_resp.data:
         raise ValueError("Entry not found")
 
+    # Required fields are always updated; optional fields only when sent (avoids clearing parent_id)
+    set_fields = payload.model_dump(exclude_unset=True)
     update_row: dict = {
         "content": payload.content,
         "priority": payload.priority,
-        "due_date": payload.due_date.isoformat() if payload.due_date else None,
-        "parent_id": str(payload.parent_id) if getattr(payload, "parent_id", None) is not None else None,
     }
+    if "due_date" in set_fields:
+        update_row["due_date"] = payload.due_date.isoformat() if payload.due_date else None
+    if "parent_id" in set_fields:
+        update_row["parent_id"] = str(payload.parent_id) if payload.parent_id is not None else None
     client.table("entries").update(update_row).eq("id", str(entry_id)).execute()
 
     client.table("entry_tags").delete().eq("entry_id", str(entry_id)).execute()

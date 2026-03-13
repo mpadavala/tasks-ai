@@ -1,7 +1,20 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  DndContext,
+  DragOverlay,
+  pointerWithin,
+  type DragEndEvent,
+  type DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+} from "@dnd-kit/core";
+import { snapCenterToCursor } from "@dnd-kit/modifiers";
 import { Entry, type Priority, type TaskStatus, SortBy, SortOrder } from "@/lib/api";
 import type { Tag } from "@/lib/api";
 import { DatePickerInput } from "./DatePickerInput";
@@ -9,6 +22,8 @@ import { TagChip } from "./TagChip";
 import { TagInput } from "./TagInput";
 import { PriorityInput } from "./PriorityInput";
 import { SearchBar } from "./SearchBar";
+
+const DND_TOP_LEVEL_ID = "dnd-top-level";
 
 function GripIcon({ className }: { className?: string }) {
   return (
@@ -20,6 +35,86 @@ function GripIcon({ className }: { className?: string }) {
       <circle cx="9" cy="18" r="1.5" />
       <circle cx="15" cy="18" r="1.5" />
     </svg>
+  );
+}
+
+function DraggableGrip({ id, className, children }: { id: string; className?: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className ?? ""} transition-opacity duration-150 ease-out ${isDragging ? "opacity-30" : ""}`}
+      {...listeners}
+      {...attributes}
+      title="Drag to move task"
+      aria-label="Drag to move task"
+    >
+      {children}
+    </div>
+  );
+}
+
+function DroppableTr({
+  id,
+  className,
+  children,
+  component = "tr",
+  ...rest
+}: {
+  id: string;
+  className?: string;
+  children: React.ReactNode;
+  component?: "tr" | "div";
+} & React.HTMLAttributes<HTMLTableRowElement>) {
+  const { isOver, setNodeRef } = useDroppable({ id });
+  const highlight = isOver ? "ring-2 ring-inset ring-sky-500 bg-sky-50/90 dark:bg-sky-900/40" : "";
+  const combined = [className, highlight, "transition-all duration-150 ease-out"].filter(Boolean).join(" ");
+  if (component === "div") {
+    return (
+      <div ref={setNodeRef} className={combined}>
+        {children}
+      </div>
+    );
+  }
+  return (
+    <tr ref={setNodeRef} className={combined} {...rest}>
+      {children}
+    </tr>
+  );
+}
+
+function DragPreviewCard({ entry, isSubtask }: { entry: Entry; isSubtask?: boolean }) {
+  const isOverdue = !!entry.due_date && entry.due_date < new Date().toISOString().slice(0, 10);
+  return (
+    <div
+      className="flex min-w-[280px] max-w-[420px] items-center gap-2 rounded-xl border border-slate-200/90 bg-white py-2.5 pl-2.5 pr-3 shadow-xl ring-1 ring-slate-200/50 transition-shadow dark:border-slate-600 dark:bg-slate-800 dark:ring-slate-600/50"
+      style={{ cursor: "grabbing" }}
+    >
+      <div className="flex shrink-0 text-slate-400 dark:text-slate-500">
+        <GripIcon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={`truncate text-sm font-medium ${isOverdue ? "text-orange-600 dark:text-orange-300" : "text-slate-800 dark:text-slate-100"}`}>
+          {isSubtask && <span className="mr-1 text-slate-400">↳ </span>}
+          {entry.content}
+        </p>
+        {entry.tags.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {entry.tags.slice(0, 3).map((t) => (
+              <span
+                key={t}
+                className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+              >
+                {t}
+              </span>
+            ))}
+            {entry.tags.length > 3 && (
+              <span className="text-[10px] text-slate-400">+{entry.tags.length - 3}</span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -89,64 +184,36 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [newSubtaskDue, setNewSubtaskDue] = useState("");
   const [savingSubtaskForId, setSavingSubtaskForId] = useState<string | null>(null);
   const [draggedEntry, setDraggedEntry] = useState<Entry | null>(null);
-  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
-  const [dropTargetTopLevel, setDropTargetTopLevel] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const handleDragStart = (e: React.DragEvent, entry: Entry) => {
-    e.stopPropagation();
-    setDraggedEntry(entry);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", entry.id);
-    // Required for drag to work in some browsers
-    try {
-      e.dataTransfer.setData("application/json", JSON.stringify({ id: entry.id }));
-    } catch {
-      // ignore
-    }
+  const idToEntry = useMemo(() => {
+    const m = new Map<string, Entry>();
+    entries.forEach((e) => m.set(e.id, e));
+    Object.values(subtasksByParentId).forEach((list) => list.forEach((e) => m.set(e.id, e)));
+    return m;
+  }, [entries, subtasksByParentId]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
+
+  const handleDndDragStart = (event: DragStartEvent) => {
+    const entry = idToEntry.get(String(event.active.id));
+    if (entry) setDraggedEntry(entry);
   };
 
-  const handleDragEnd = () => {
+  const handleDndDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    const captured = idToEntry.get(String(active.id));
     setDraggedEntry(null);
-    setDropTargetId(null);
-    setDropTargetTopLevel(false);
-  };
-
-  const handleDragOver = (e: React.DragEvent, targetEntryId: string | null, isTopLevel: boolean) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = "move";
-    if (isTopLevel) {
-      setDropTargetId(null);
-      setDropTargetTopLevel(true);
-    } else if (targetEntryId && targetEntryId !== draggedEntry?.id) {
-      setDropTargetId(targetEntryId);
-      setDropTargetTopLevel(false);
-    }
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.stopPropagation();
-    const related = e.relatedTarget as Node | null;
-    if (!related || !e.currentTarget.contains(related)) {
-      setDropTargetId(null);
-      setDropTargetTopLevel(false);
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetParentId: string | null) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!draggedEntry) return;
-    if (targetParentId === draggedEntry.id) return;
-    const newParentId = targetParentId;
-    const oldParentId = draggedEntry.parent_id ?? null;
-    if (newParentId === oldParentId) {
-      handleDragEnd();
-      return;
-    }
-    const captured = draggedEntry;
-    handleDragEnd();
+    if (!captured || !over) return;
+    const overId = String(over.id);
+    if (overId === active.id) return; // can't drop on self
+    const newParentId = overId === DND_TOP_LEVEL_ID ? null : overId;
+    const oldParentId = captured.parent_id ?? null;
+    if (newParentId === oldParentId) return;
     try {
       await onUpdateEntry(captured.id, {
         content: captured.content,
@@ -155,21 +222,22 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         due_date: captured.due_date ?? null,
         parent_id: newParentId,
       });
-      // Refresh the old parent's subtask list to remove the moved task
+      // Refetch old parent's subtasks so the moved item disappears from there
       if (oldParentId && onFetchSubtasks) {
         onFetchSubtasks(oldParentId).then((list) =>
           setSubtasksByParentId((prev) => ({ ...prev, [oldParentId]: list }))
         );
       }
-      // Refresh the new parent's subtask list and expand it so the moved task is visible
+      // Refetch new parent's subtasks and expand so the moved item appears
       if (newParentId && onFetchSubtasks) {
         setExpandedIds((prev) => new Set([...prev, newParentId]));
         onFetchSubtasks(newParentId).then((list) =>
           setSubtasksByParentId((prev) => ({ ...prev, [newParentId]: list }))
         );
       }
+      // Moving to top-level: parent's handleUpdateEntry already calls loadEntries()
     } catch {
-      // errors are handled upstream by onUpdateEntry
+      setError("Failed to move task. Try again.");
     }
   };
 
@@ -466,19 +534,32 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             </tr>
           </thead>
           <tbody>
+            {mounted ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={pointerWithin}
+              onDragStart={handleDndDragStart}
+              onDragEnd={handleDndDragEnd}
+            >
+            <DragOverlay modifiers={[snapCenterToCursor]}
+              dropAnimation={{
+                duration: 200,
+                easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+              }}
+            >
+              {draggedEntry ? (
+                <DragPreviewCard entry={draggedEntry} isSubtask={!!draggedEntry.parent_id} />
+              ) : null}
+            </DragOverlay>
             {draggedEntry && entries.length > 0 && (
-              <tr
-                onDragOver={(e) => handleDragOver(e, null, true)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => { void handleDrop(e, null); }}
-                className={`border-b border-slate-200 text-center text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 ${
-                  dropTargetTopLevel ? "bg-sky-100 dark:bg-sky-900/50" : "bg-slate-50/50 dark:bg-slate-900/30"
-                }`}
+              <DroppableTr
+                id={DND_TOP_LEVEL_ID}
+                className="border-b border-slate-200 text-center text-xs text-slate-500 transition-colors duration-150 dark:border-slate-800 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/30"
               >
                 <td colSpan={6} className="py-2">
                   Drop here for top-level task
                 </td>
-              </tr>
+              </DroppableTr>
             )}
             {entries.length === 0 ? (
               <tr>
@@ -499,28 +580,23 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                 const currentStatus = (entry.task_status ?? "not_started") as TaskStatus;
                 return (
                   <React.Fragment key={entry.id}>
-                  <tr
+                  <DroppableTr
+                    id={entry.id}
                     onDoubleClick={() => openEditModal(entry)}
-                    onDragOver={(e) => handleDragOver(e, entry.id, false)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => { void handleDrop(e, entry.id); }}
-                    onDragEnd={handleDragEnd}
-                    className={`border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
-                      draggedEntry?.id === entry.id ? "opacity-50" : ""
-                    } ${dropTargetId === entry.id ? "ring-1 ring-inset ring-sky-500 bg-sky-50/80 dark:bg-sky-900/30" : ""}`}
+                    className={`border-b border-slate-200 align-top last:border-0 transition-colors duration-150 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30 ${
+                      draggedEntry?.id === entry.id
+                        ? "bg-slate-100/80 opacity-60 dark:bg-slate-800/50"
+                        : ""
+                    }`}
                   >
                     <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
                       <div className="flex items-center gap-1.5">
-                        <div
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, entry)}
-                          onDragEnd={handleDragEnd}
+                        <DraggableGrip
+                          id={entry.id}
                           className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center self-stretch rounded border border-transparent py-1 pr-1 text-slate-400 hover:border-slate-300 hover:bg-slate-200 hover:text-slate-600 active:cursor-grabbing dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300"
-                          title="Drag to move task"
-                          aria-label="Drag to move task"
                         >
                           <GripIcon className="h-4 w-4" />
-                        </div>
+                        </DraggableGrip>
                         {onFetchSubtasks && (
                           <span className="flex shrink-0 items-center gap-0.5">
                             <button
@@ -577,9 +653,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                     <td className={`whitespace-nowrap px-2 py-2 text-xs capitalize ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-600 dark:text-slate-300"}`}>
                       {entry.priority ?? "medium"}
                     </td>
-                    <td
-                      className={`whitespace-nowrap px-2 py-2 text-xs ${isOverdue ? "text-orange-600 font-medium dark:text-orange-200" : "text-slate-500 dark:text-slate-400"}`}
-                    >
+                    <td className={`whitespace-nowrap px-2 py-2 text-xs ${isOverdue ? "text-orange-600 font-medium dark:text-orange-200" : "text-slate-500 dark:text-slate-400"}`}>
                       {entry.due_date ? new Date(entry.due_date + "T12:00:00").toLocaleDateString() : "—"}
                       {isOverdue && entry.due_date ? (
                         <span className="ml-1 text-[10px] text-orange-500 dark:text-orange-300/90">
@@ -608,7 +682,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         ))}
                       </select>
                     </td>
-                  </tr>
+                  </DroppableTr>
                   {expandedIds.has(entry.id) && (
                     <>
                       {loadingSubtasksFor === entry.id ? (
@@ -625,29 +699,24 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             sub.due_date < new Date().toISOString().slice(0, 10);
                           const subStatus = (sub.task_status ?? "not_started") as TaskStatus;
                           return (
-                            <tr
+                            <DroppableTr
                               key={sub.id}
+                              id={sub.id}
                               onDoubleClick={() => openEditModal(sub)}
-                              onDragOver={(e) => handleDragOver(e, sub.id, false)}
-                              onDragLeave={handleDragLeave}
-                              onDrop={(e) => { void handleDrop(e, sub.id); }}
-                              onDragEnd={handleDragEnd}
-                              className={`border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
-                                draggedEntry?.id === sub.id ? "opacity-50" : ""
-                              } ${dropTargetId === sub.id ? "ring-1 ring-inset ring-sky-500 bg-sky-50/80 dark:bg-sky-900/30" : ""}`}
+                              className={`border-b border-slate-200 bg-slate-50/80 align-top last:border-0 transition-colors duration-150 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50 ${
+                                draggedEntry?.id === sub.id
+                                  ? "bg-slate-200/60 opacity-60 dark:bg-slate-800/60"
+                                  : ""
+                              }`}
                             >
                               <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
                                 <div className="flex items-center gap-1">
-                                  <div
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, sub)}
-                                    onDragEnd={handleDragEnd}
+                                  <DraggableGrip
+                                    id={sub.id}
                                     className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center rounded py-0.5 pr-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 active:cursor-grabbing dark:hover:bg-slate-700 dark:hover:text-slate-300"
-                                    title="Drag to move task"
-                                    aria-label="Drag to move task"
                                   >
                                     <GripIcon className="h-3 w-3" />
-                                  </div>
+                                  </DraggableGrip>
                                   <span className="text-slate-500 dark:text-slate-400">↳ </span>
                                   {sub.content}
                                 </div>
@@ -687,7 +756,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   ))}
                                 </select>
                               </td>
-                            </tr>
+                            </DroppableTr>
                           );
                         })
                       )}
@@ -737,6 +806,176 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   </React.Fragment>
                 );
               })
+            )}
+            </DndContext>
+            ) : (
+              <>
+                {entries.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-2 py-8 text-center text-xs text-slate-500 dark:text-slate-500">
+                      {loading ? "Loading..." : "No tasks match your filters."}
+                    </td>
+                  </tr>
+                ) : (
+                  entries.map((entry) => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const isOverdue = !isCompletedTab && !!entry.due_date && entry.due_date < today;
+                    const currentStatus = (entry.task_status ?? "not_started") as TaskStatus;
+                    return (
+                      <React.Fragment key={entry.id}>
+                        <tr
+                          onDoubleClick={() => openEditModal(entry)}
+                          className="border-b border-slate-200 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:hover:bg-slate-800/30"
+                        >
+                          <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center self-stretch rounded border border-transparent py-1 pr-1 text-slate-400 dark:hover:bg-slate-700">
+                                <GripIcon className="h-4 w-4" />
+                              </div>
+                              {onFetchSubtasks && (
+                                <span className="flex shrink-0 items-center gap-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); toggleExpand(entry.id); }}
+                                    className="rounded p-0.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    aria-label={expandedIds.has(entry.id) ? "Collapse subtasks" : "Expand subtasks"}
+                                  >
+                                    {expandedIds.has(entry.id) ? "▼" : "▶"}
+                                  </button>
+                                  {(typeof entry.subtask_count === "number" || entry.id in subtasksByParentId) && (
+                                    <span className="min-w-[1.25rem] text-[10px] text-slate-400 dark:text-slate-500">
+                                      ({subtasksByParentId[entry.id] ? subtasksByParentId[entry.id].length : (entry.subtask_count ?? 0)})
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                              <span>{entry.content}</span>
+                              {onCreateSubtask && onFetchSubtasks && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!expandedIds.has(entry.id)) toggleExpand(entry.id);
+                                    setAddingSubtaskForId(entry.id);
+                                    setNewSubtaskContent("");
+                                    setNewSubtaskDue(entry.due_date ?? "");
+                                  }}
+                                  className="ml-1 shrink-0 text-[10px] text-sky-600 hover:underline dark:text-sky-400"
+                                >
+                                  + Add subtask
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className={`px-2 py-2 ${isOverdue ? "text-orange-600 dark:text-orange-200" : ""}`}>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {entry.tags.length === 0 ? (
+                                <span className={`text-xs ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-500"}`}>No tags</span>
+                              ) : (
+                                entry.tags.map((t) => <TagChip key={t} label={t} className={isOverdue ? "!text-orange-600 dark:!text-orange-200" : undefined} />)
+                              )}
+                            </div>
+                          </td>
+                          <td className={`whitespace-nowrap px-2 py-2 text-xs capitalize ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-600 dark:text-slate-300"}`}>
+                            {entry.priority ?? "medium"}
+                          </td>
+                          <td className={`whitespace-nowrap px-2 py-2 text-xs ${isOverdue ? "text-orange-600 font-medium dark:text-orange-200" : "text-slate-500 dark:text-slate-400"}`}>
+                            {entry.due_date ? new Date(entry.due_date + "T12:00:00").toLocaleDateString() : "—"}
+                            {isOverdue && entry.due_date ? <span className="ml-1 text-[10px] text-orange-500 dark:text-orange-300/90">(overdue)</span> : null}
+                          </td>
+                          <td className={`whitespace-nowrap px-2 py-2 text-xs ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-500 dark:text-slate-400"}`}>
+                            {new Date(entry.created_at).toLocaleString()}
+                          </td>
+                          <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                            <select
+                              value={currentStatus}
+                              onChange={(e) => { const v = e.target.value as TaskStatus; void handleStatusChange(entry.id, v); }}
+                              disabled={updatingStatusId === entry.id}
+                              className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                              aria-label="Task status"
+                            >
+                              {TASK_STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                        {expandedIds.has(entry.id) && (
+                          <>
+                            {loadingSubtasksFor === entry.id ? (
+                              <tr key={`subtasks-loading-${entry.id}`}>
+                                <td colSpan={6} className="bg-slate-50 px-2 py-1 text-[10px] text-slate-500 dark:bg-slate-900/50 dark:text-slate-400">Loading subtasks…</td>
+                              </tr>
+                            ) : (
+                              (subtasksByParentId[entry.id] ?? []).map((sub) => {
+                                const subStatus = (sub.task_status ?? "not_started") as TaskStatus;
+                                return (
+                                  <tr
+                                    key={sub.id}
+                                    onDoubleClick={() => openEditModal(sub)}
+                                    className="border-b border-slate-200 bg-slate-50/80 align-top last:border-0 hover:bg-slate-100 dark:border-slate-800/70 dark:bg-slate-900/30 dark:hover:bg-slate-800/50"
+                                  >
+                                    <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
+                                      <div className="flex items-center gap-1">
+                                        <div className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center rounded py-0.5 pr-0.5 text-slate-400 dark:hover:bg-slate-700">
+                                          <GripIcon className="h-3 w-3" />
+                                        </div>
+                                        <span className="text-slate-500 dark:text-slate-400">↳ </span>
+                                        {sub.content}
+                                      </div>
+                                    </td>
+                                    <td className="px-2 py-1.5">
+                                      <div className="flex flex-wrap gap-1">
+                                        {sub.tags.length === 0 ? <span className="text-xs text-slate-500">—</span> : sub.tags.map((t) => <TagChip key={t} label={t} />)}
+                                      </div>
+                                    </td>
+                                    <td className="whitespace-nowrap px-2 py-1.5 text-xs text-slate-600 dark:text-slate-400">{sub.priority ?? "medium"}</td>
+                                    <td className="whitespace-nowrap px-2 py-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                      {sub.due_date ? new Date(sub.due_date + "T12:00:00").toLocaleDateString() : "—"}
+                                    </td>
+                                    <td className="whitespace-nowrap px-2 py-1.5 text-xs text-slate-500 dark:text-slate-400">{new Date(sub.created_at).toLocaleString()}</td>
+                                    <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                                      <select
+                                        value={subStatus}
+                                        onChange={(e) => { const v = e.target.value as TaskStatus; void handleStatusChange(sub.id, v, entry.id); }}
+                                        disabled={updatingStatusId === sub.id}
+                                        className="w-full min-w-0 rounded border border-slate-300 bg-white px-1.5 py-1 text-[10px] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                                      >
+                                        {TASK_STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                                      </select>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                            {addingSubtaskForId === entry.id && (
+                              <tr key={`add-subtask-${entry.id}`}>
+                                <td colSpan={6} className="bg-sky-50/80 px-2 py-2 pl-8 dark:bg-sky-950/30">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                      type="text"
+                                      value={newSubtaskContent}
+                                      onChange={(e) => setNewSubtaskContent(e.target.value)}
+                                      placeholder="Subtask content"
+                                      className="min-w-[160px] rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                                      onKeyDown={(e) => e.key === "Enter" && void submitNewSubtask(entry.id)}
+                                    />
+                                    <input type="date" value={newSubtaskDue} onChange={(e) => setNewSubtaskDue(e.target.value)} className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" />
+                                    <button type="button" onClick={() => void submitNewSubtask(entry.id)} disabled={!newSubtaskContent.trim() || savingSubtaskForId === entry.id} className="rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-50">
+                                      {savingSubtaskForId === entry.id ? "Adding…" : "Add"}
+                                    </button>
+                                    <button type="button" onClick={() => { setAddingSubtaskForId(null); setNewSubtaskContent(""); setNewSubtaskDue(""); }} className="rounded border border-slate-400 px-2 py-1 text-xs dark:border-slate-600 dark:text-slate-300">Cancel</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </>
             )}
           </tbody>
         </table>

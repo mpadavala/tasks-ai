@@ -201,6 +201,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
   const [justDroppedId, setJustDroppedId] = useState<string | null>(null);
   const dropHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const newSubtaskInputRef = useRef<HTMLInputElement | null>(null);
+  const editContentInputRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => setMounted(true), []);
 
   // Focus the new subtask textbox when the add-subtask row is shown
@@ -214,6 +215,18 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       return () => cancelAnimationFrame(id);
     }
   }, [addingSubtaskForId]);
+
+  // Focus the content textarea when the edit task modal opens
+  useEffect(() => {
+    if (!editModalEntry) return;
+    const textarea = editContentInputRef.current;
+    if (textarea) {
+      const id = requestAnimationFrame(() => {
+        textarea.focus();
+      });
+      return () => cancelAnimationFrame(id);
+    }
+  }, [editModalEntry]);
 
   const idToEntry = useMemo(() => {
     const m = new Map<string, Entry>();
@@ -401,18 +414,30 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       (editDueDate || null) !== (editModalEntry.due_date ?? null) ||
       JSON.stringify([...editTags].sort()) !== JSON.stringify([...editModalEntry.tags].sort()));
 
-  const saveEdit = async () => {
-    if (!editModalEntry || !isEditDirty) return;
+  const saveEdit = async (contentOverride?: string) => {
+    if (!editModalEntry) return;
+    const content = (contentOverride ?? editContent).trim();
+    const dirty =
+      content !== (editModalEntry.content ?? "") ||
+      editPriority !== (editModalEntry.priority ?? "medium") ||
+      (editDueDate || null) !== (editModalEntry.due_date ?? null) ||
+      JSON.stringify([...editTags].sort()) !== JSON.stringify([...editModalEntry.tags].sort());
+    if (!dirty || !content) return;
+    const parentId = editModalEntry.parent_id ?? null;
     setSavingId(editModalEntry.id);
     setError(null);
     try {
       await onUpdateEntry(editModalEntry.id, {
-        content: editContent.trim(),
+        content,
         priority: editPriority,
         tags: editTags,
         due_date: editDueDate.trim() || null,
-        parent_id: editModalEntry.parent_id ?? null,
+        parent_id: parentId,
       });
+      if (parentId && onFetchSubtasks) {
+        const list = await onFetchSubtasks(parentId);
+        setSubtasksByParentId((prev) => ({ ...prev, [parentId]: list }));
+      }
       closeEditModal();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update task");
@@ -466,6 +491,19 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         <div
           className="relative z-10 w-full max-w-lg rounded-xl border border-slate-300 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            const target = e.target as Node;
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !(target instanceof HTMLTextAreaElement) &&
+              !(target instanceof HTMLButtonElement)
+            ) {
+              e.preventDefault();
+              const content = editContentInputRef.current?.value?.trim() ?? editContent.trim();
+              if (content && savingId !== editModalEntry?.id) void saveEdit(content);
+            }
+          }}
         >
           <h3
             id="edit-dialog-title"
@@ -487,8 +525,17 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             <div>
               <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Content</label>
               <textarea
+                ref={editContentInputRef}
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const content = e.currentTarget.value.trim();
+                    if (content && savingId !== editModalEntry?.id) void saveEdit(content);
+                  }
+                }}
                 className="mt-1 min-h-[80px] w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-50"
               />
             </div>
@@ -525,7 +572,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => void saveEdit()}
+              onClick={() => {
+                const content = editContentInputRef.current?.value?.trim() ?? editContent.trim();
+                if (savingId !== editModalEntry?.id) void saveEdit(content);
+              }}
               disabled={!isEditDirty || savingId === editModalEntry.id || !editContent.trim()}
               className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
             >

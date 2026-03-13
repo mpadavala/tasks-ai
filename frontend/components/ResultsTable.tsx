@@ -752,7 +752,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             )}
                           </span>
                         )}
-                        <span>{entry.content}</span>
+                        <span className="font-bold">{entry.content}</span>
                         {onCreateSubtask && onFetchSubtasks && (
                           <button
                             type="button"
@@ -978,7 +978,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   )}
                                 </span>
                               )}
-                              <span>{entry.content}</span>
+                              <span className="font-bold">{entry.content}</span>
                               {onCreateSubtask && onFetchSubtasks && (
                                 <button
                                   type="button"

@@ -38,19 +38,6 @@ function GripIcon({ className }: { className?: string }) {
   );
 }
 
-/** Visual-only grip icon (used when the whole row is draggable via DraggableDroppableTr). */
-function GripAffordance({ className }: { className?: string }) {
-  return (
-    <div
-      className={className ?? ""}
-      title="Drag to move task"
-      aria-hidden
-    >
-      <GripIcon className="h-4 w-4" />
-    </div>
-  );
-}
-
 /** Row that is both droppable and draggable; drag from anywhere on the row. */
 function DraggableDroppableTr({
   id,
@@ -234,6 +221,18 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
     Object.values(subtasksByParentId).forEach((list) => list.forEach((e) => m.set(e.id, e)));
     return m;
   }, [entries, subtasksByParentId]);
+
+  const entryIdsWithSubtasks = useMemo(
+    () =>
+      entries
+        .filter(
+          (e) =>
+            (typeof e.subtask_count === "number" && e.subtask_count > 0) ||
+            (e.id in subtasksByParentId && (subtasksByParentId[e.id]?.length ?? 0) > 0)
+        )
+        .map((e) => e.id),
+    [entries, subtasksByParentId]
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -559,11 +558,31 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
           Tasks
         </h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {total === 0
-            ? "No tasks yet"
-            : `Showing ${startIndex}-${endIndex} of ${total}`}
-        </p>
+        <div className="flex items-center gap-3">
+          {onFetchSubtasks &&
+            (expandedIds.size > 0 ? (
+              <button
+                type="button"
+                onClick={() => setExpandedIds(new Set())}
+                className="text-xs text-sky-600 hover:underline dark:text-sky-400"
+              >
+                Collapse all
+              </button>
+            ) : entryIdsWithSubtasks.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setExpandedIds(new Set(entryIdsWithSubtasks))}
+                className="text-xs text-sky-600 hover:underline dark:text-sky-400"
+              >
+                Expand all
+              </button>
+            ) : null)}
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {total === 0
+              ? "No tasks yet"
+              : `Showing ${startIndex}-${endIndex} of ${total}`}
+          </p>
+        </div>
       </div>
 
       {error && (
@@ -663,9 +682,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                   >
                     <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
                       <div className="flex items-center gap-1.5">
-                        <GripAffordance
-                          className="flex shrink-0 touch-none select-none items-center justify-center self-stretch rounded border border-transparent py-1 pr-1 text-slate-400 dark:text-slate-500"
-                        />
                         {onFetchSubtasks && (
                           <span className="flex shrink-0 items-center gap-0.5">
                             <button
@@ -782,9 +798,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                             >
                               <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
                                 <div className="flex items-center gap-1">
-                                  <GripAffordance
-                                    className="flex shrink-0 touch-none select-none items-center justify-center rounded py-0.5 pr-0.5 text-slate-400 dark:text-slate-500"
-                                  />
                                   <span className="text-slate-500 dark:text-slate-400">↳ </span>
                                   {sub.content}
                                 </div>
@@ -898,9 +911,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                         >
                           <td className={`max-w-xl px-2 py-2 text-sm ${isOverdue ? "text-orange-600 dark:text-orange-200" : "text-slate-900 dark:text-slate-100"}`}>
                             <div className="flex items-center gap-1.5">
-                              <div className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center self-stretch rounded border border-transparent py-1 pr-1 text-slate-400 dark:hover:bg-slate-700">
-                                <GripIcon className="h-4 w-4" />
-                              </div>
                               {onFetchSubtasks && (
                                 <span className="flex shrink-0 items-center gap-0.5">
                                   <button
@@ -988,9 +998,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
                                   >
                                     <td className="max-w-xl px-2 py-1.5 pl-8 text-sm text-slate-700 dark:text-slate-300">
                                       <div className="flex items-center gap-1">
-                                        <div className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center rounded py-0.5 pr-0.5 text-slate-400 dark:hover:bg-slate-700">
-                                          <GripIcon className="h-3 w-3" />
-                                        </div>
                                         <span className="text-slate-500 dark:text-slate-400">↳ </span>
                                         {sub.content}
                                       </div>

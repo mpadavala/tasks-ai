@@ -15,6 +15,13 @@ function fromDate(date: Date | undefined): string {
   return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
 }
 
+/** Format YYYY-MM-DD as MM/DD/YYYY for display */
+function formatDisplayDate(value: string): string {
+  if (!value || value.length < 10) return "";
+  const [y, m, d] = value.slice(0, 10).split("-");
+  return `${m}/${d}/${y}`;
+}
+
 interface DatePickerInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -78,7 +85,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
         aria-haspopup="dialog"
         className={`min-w-[8rem] rounded-md border border-slate-300 bg-white px-2 py-1.5 text-left text-xs text-slate-900 focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-50 ${className}`}
       >
-        {value || "Select date"}
+        {value ? formatDisplayDate(value) : "Select date"}
       </button>
       {open && (
         <div
